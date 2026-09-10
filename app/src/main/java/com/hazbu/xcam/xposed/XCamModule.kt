@@ -114,10 +114,10 @@ class XCamModule : XposedModule() {
         super.onPackageReady(param)
         val processName = SystemUtils.getProcessNameStrict()
 
-        if (param.packageName == "com.vaguer.cam") {
-            hookManagerApp(param)
-            return
-        }
+        // Never hook VAGUER Cam's own manager/editor process. Some Xposed
+        // managers keep self-hooks alive until reboot, which can make the
+        // launcher activity crash even after the module is toggled off.
+        if (param.packageName == "com.vaguer.cam") return
 
         if (!processName.contains(param.packageName)) return
         if (hooksInstalled) return
@@ -128,14 +128,6 @@ class XCamModule : XposedModule() {
         logInit(">>> ACTIVE IN: $processName (API ${Build.VERSION.SDK_INT}) <<<")
         hookContextInit()
         injectors.install(param)
-    }
-
-    private fun hookManagerApp(param: XposedModuleInterface.PackageReadyParam) {
-        try {
-            val clazz = param.classLoader.loadClass("com.hazbu.xcam.ui.MainActivity")
-            hook(clazz.getDeclaredMethod("checkSelfActive")).intercept { true }
-        } catch (_: Throwable) {
-        }
     }
 
     private fun hookContextInit() {
