@@ -21,7 +21,7 @@ class XCamEngine(
     private val logAction: (String) -> Unit,
 ) {
     private val uiHandler = Handler(Looper.getMainLooper())
-    
+
     private var lastST: SurfaceTexture? = null
     private var lastModernSurface: Surface? = null
     private var lastInjectedGen = -1
@@ -49,21 +49,25 @@ class XCamEngine(
             return
         }
 
-        if ((st == lastST) && mediaEngine.isPlaying && lastInjectedGen == surfaceManager.sessionGeneration) return
+        if (
+            st == lastST && mediaEngine.isPlaying &&
+            lastInjectedGen == surfaceManager.sessionGeneration
+        ) return
+
         lastST = st
         lastInjectedGen = surfaceManager.sessionGeneration
-
         val path = settingsProvider().mediaPath ?: return
         val context = contextProvider() ?: return
-        val settings = settingsProvider()
-
         logPipe("Legacy Hook: Injecting to SurfaceTexture")
-        mediaEngine.play(context, path, surface, "Legacy", settings.isMirrored, settings.rotationAngle)
+        playWithSettings(context, path, surface, "Legacy")
     }
 
     fun handleModernPreview(surface: Surface) {
         val currentGen = surfaceManager.sessionGeneration
-        if (surface == lastModernSurface && mediaEngine.isPlaying && lastInjectedGen == currentGen) return
+        if (
+            surface == lastModernSurface && mediaEngine.isPlaying &&
+            lastInjectedGen == currentGen
+        ) return
         lastModernSurface = surface
         uiHandler.post { processInjection(surface) }
     }
@@ -85,20 +89,45 @@ class XCamEngine(
     fun injectToSurface(surface: Surface, context: Context, path: String) {
         synchronized(this) {
             if (!surface.isValid) return
-            
+
             val id = com.hazbu.xcam.utils.SystemUtils.getSurfaceId(surface)
             val currentGen = surfaceManager.sessionGeneration
-            val settings = settingsProvider()
-
-            if (id == lastInjectedSurfaceId && mediaEngine.isPlaying && currentGen == lastInjectedGen) return
+            if (
+                id == lastInjectedSurfaceId && mediaEngine.isPlaying &&
+                currentGen == lastInjectedGen
+            ) return
 
             logPipe("Injection: ID=$id Gen=$currentGen")
             mediaEngine.stop()
-            
             lastInjectedGen = currentGen
             lastInjectedSurfaceId = id
-            mediaEngine.play(context, path, surface, "Engine", settings.isMirrored, settings.rotationAngle)
+            playWithSettings(context, path, surface, "Engine")
         }
+    }
+
+    private fun playWithSettings(
+        context: Context,
+        path: String,
+        surface: Surface,
+        tag: String,
+    ) {
+        val settings = settingsProvider()
+        mediaEngine.play(
+            context = context,
+            path = path,
+            surface = surface,
+            tag = tag,
+            isMirrored = settings.isMirrored,
+            rotationAngle = settings.rotationAngle,
+            scaleX = settings.scaleX,
+            scaleY = settings.scaleY,
+            offsetX = settings.offsetX,
+            offsetY = settings.offsetY,
+            fitMode = settings.fitMode,
+            brightness = settings.brightness,
+            contrast = settings.contrast,
+            saturation = settings.saturation,
+        )
     }
 
     fun getDummySurface(): Surface = surfaceProvider.getDummySurface()
