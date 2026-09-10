@@ -11,9 +11,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Preview surface used by VAGUER Cam. It behaves like a lightweight desktop
- * "Transform" tool: drag to move, pinch to zoom, and use the external controls
- * to stretch, rotate, mirror, fit, fill or reset the media.
+ * Preview surface used by VAGUER Cam. Drag to move and pinch to zoom.
+ * All gesture values are sanitized before they are persisted or rendered so a
+ * malformed gesture cannot poison the saved state and crash the next launch.
  */
 class TransformableImageView @JvmOverloads constructor(
     context: Context,
@@ -32,11 +32,14 @@ class TransformableImageView @JvmOverloads constructor(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                val factor = detector.scaleFactor.coerceIn(0.75f, 1.33f)
-                state.scaleX = (state.scaleX * factor).coerceIn(0.25f, 4f)
-                state.scaleY = (state.scaleY * factor).coerceIn(0.25f, 4f)
+                val rawFactor = detector.scaleFactor
+                if (!rawFactor.isFinite() || rawFactor <= 0f) return false
+
+                val factor = rawFactor.coerceIn(0.75f, 1.33f)
+                state.scaleX = safe(state.scaleX * factor, 1f, 0.25f, 4f)
+                state.scaleY = safe(state.scaleY * factor, 1f, 0.25f, 4f)
                 rebuildMatrix()
-                notifyChanged()
+                notifyChangedSafely()
                 return true
             }
         },
@@ -48,29 +51,29 @@ class TransformableImageView @JvmOverloads constructor(
     }
 
     fun setTransformState(newState: TransformState) {
-        state = newState.copy()
+        state = sanitize(newState)
         rebuildMatrix()
     }
 
     fun getTransformState(): TransformState = state.copy()
 
     fun setScaleFactors(x: Float, y: Float) {
-        state.scaleX = x.coerceIn(0.25f, 4f)
-        state.scaleY = y.coerceIn(0.25f, 4f)
+        state.scaleX = safe(x, 1f, 0.25f, 4f)
+        state.scaleY = safe(y, 1f, 0.25f, 4f)
         rebuildMatrix()
-        notifyChanged()
+        notifyChangedSafely()
     }
 
     fun rotateBy(degrees: Int) {
         state.rotation = ((state.rotation + degrees) % 360 + 360) % 360
         rebuildMatrix()
-        notifyChanged()
+        notifyChangedSafely()
     }
 
     fun setMirrored(mirrored: Boolean) {
         state.mirrored = mirrored
         rebuildMatrix()
-        notifyChanged()
+        notifyChangedSafely()
     }
 
     fun setFitMode(mode: String) {
@@ -80,21 +83,21 @@ class TransformableImageView @JvmOverloads constructor(
             else -> Constants.FIT_MODE_FIT
         }
         rebuildMatrix()
-        notifyChanged()
+        notifyChangedSafely()
     }
 
     fun centerContent() {
         state.offsetX = 0f
         state.offsetY = 0f
         rebuildMatrix()
-        notifyChanged()
+        notifyChangedSafely()
     }
 
     fun resetTransform() {
-        val keepBrightness = state.brightness
-        val keepContrast = state.contrast
-        val keepSaturation = state.saturation
-        val keepSharpness = state.sharpness
+        val keepBrightness = safe(state.brightness, 0f, -1f, 1f)
+        val keepContrast = safe(state.contrast, 0f, -1f, 1f)
+        val keepSaturation = safe(state.saturation, 0f, -100f, 100f)
+        val keepSharpness = safe(state.sharpness, 0f, 0f, 1f)
         state = TransformState(
             brightness = keepBrightness,
             contrast = keepContrast,
@@ -102,7 +105,7 @@ class TransformableImageView @JvmOverloads constructor(
             sharpness = keepSharpness,
         )
         rebuildMatrix()
-        notifyChanged()
+        notifyChangedSafely()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -116,34 +119,53 @@ class TransformableImageView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        parent?.requestDisallowInterceptTouchEvent(true)
-        scaleDetector.onTouchEvent(event)
+        try {
+            parent?.requestDisallowInterceptTouchEvent(true)
+            scaleDetector.onTouchEvent(event)
 
-        when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                lastX = event.x
-                lastY = event.y
-                dragging = true
-            }
-
-            MotionEvent.ACTION_MOVE -> {
-                if (dragging && !scaleDetector.isInProgress && width > 0 && height > 0) {
-                    val dx = event.x - lastX
-                    val dy = event.y - lastY
-                    state.offsetX = (state.offsetX + dx / (width / 2f)).coerceIn(-2f, 2f)
-                    state.offsetY = (state.offsetY + dy / (height / 2f)).coerceIn(-2f, 2f)
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
                     lastX = event.x
                     lastY = event.y
-                    rebuildMatrix()
-                    notifyChanged()
+                    dragging = true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    if (dragging && !scaleDetector.isInProgress && width > 0 && height > 0) {
+                        val dx = event.x - lastX
+                        val dy = event.y - lastY
+                        if (dx.isFinite() && dy.isFinite()) {
+                            state.offsetX = safe(
+                                state.offsetX + dx / (width / 2f),
+                                0f,
+                                -2f,
+                                2f,
+                            )
+                            state.offsetY = safe(
+                                state.offsetY + dy / (height / 2f),
+                                0f,
+                                -2f,
+                                2f,
+                            )
+                            lastX = event.x
+                            lastY = event.y
+                            rebuildMatrix()
+                            notifyChangedSafely()
+                        }
+                    }
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    dragging = false
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                    performClick()
                 }
             }
-
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                dragging = false
-                parent?.requestDisallowInterceptTouchEvent(false)
-                performClick()
-            }
+        } catch (_: Throwable) {
+            // A preview gesture must never take down the whole editor. Reset
+            // only the active gesture and keep the last valid transform.
+            dragging = false
+            parent?.requestDisallowInterceptTouchEvent(false)
         }
         return true
     }
@@ -157,10 +179,13 @@ class TransformableImageView @JvmOverloads constructor(
         val d = drawable ?: return
         if (width <= 0 || height <= 0) return
 
+        state = sanitize(state)
+
         val dw = max(1, d.intrinsicWidth).toFloat()
         val dh = max(1, d.intrinsicHeight).toFloat()
         val vw = width.toFloat()
         val vh = height.toFloat()
+        if (!dw.isFinite() || !dh.isFinite() || !vw.isFinite() || !vh.isFinite()) return
 
         val fit = min(vw / dw, vh / dh)
         val fill = max(vw / dw, vh / dh)
@@ -199,7 +224,34 @@ class TransformableImageView @JvmOverloads constructor(
         imageMatrix = matrix
     }
 
-    private fun notifyChanged() {
-        onTransformChanged?.invoke(state.copy())
+    private fun notifyChangedSafely() {
+        val snapshot = state.copy()
+        try {
+            onTransformChanged?.invoke(snapshot)
+        } catch (_: Throwable) {
+            // Keep the preview alive even if an external UI widget rejects an
+            // intermediate gesture value. The next stable value can continue.
+        }
+    }
+
+    private fun sanitize(input: TransformState): TransformState = input.copy(
+        scaleX = safe(input.scaleX, 1f, 0.25f, 4f),
+        scaleY = safe(input.scaleY, 1f, 0.25f, 4f),
+        offsetX = safe(input.offsetX, 0f, -2f, 2f),
+        offsetY = safe(input.offsetY, 0f, -2f, 2f),
+        rotation = ((input.rotation % 360) + 360) % 360,
+        fitMode = when (input.fitMode) {
+            Constants.FIT_MODE_FILL -> Constants.FIT_MODE_FILL
+            Constants.FIT_MODE_STRETCH -> Constants.FIT_MODE_STRETCH
+            else -> Constants.FIT_MODE_FIT
+        },
+        brightness = safe(input.brightness, 0f, -1f, 1f),
+        contrast = safe(input.contrast, 0f, -1f, 1f),
+        saturation = safe(input.saturation, 0f, -100f, 100f),
+        sharpness = safe(input.sharpness, 0f, 0f, 1f),
+    )
+
+    private fun safe(value: Float, fallback: Float, min: Float, max: Float): Float {
+        return if (value.isFinite()) value.coerceIn(min, max) else fallback
     }
 }
