@@ -7,7 +7,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.hazbu.xcam"
+        applicationId = "com.vaguer.cam"
         minSdk = 28
         targetSdk = 36
         versionCode = project.findProperty("APP_VERSION_CODE")?.toString()?.toInt() ?: System.getenv("APP_VERSION_CODE")?.toInt() ?: 1
