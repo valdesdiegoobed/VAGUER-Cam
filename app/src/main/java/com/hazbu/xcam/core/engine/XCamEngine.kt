@@ -24,6 +24,7 @@ class XCamEngine(
 
     private var lastST: SurfaceTexture? = null
     private var lastModernSurface: Surface? = null
+    private var lastOutputSurface: Surface? = null
     private var lastInjectedGen = -1
     private var lastInjectedSurfaceId = -1L
 
@@ -39,6 +40,7 @@ class XCamEngine(
         surfaceProvider.release()
         lastST = null
         lastModernSurface = null
+        lastOutputSurface = null
         lastInjectedSurfaceId = -1L
     }
 
@@ -52,12 +54,25 @@ class XCamEngine(
         if (
             st == lastST && mediaEngine.isPlaying &&
             lastInjectedGen == surfaceManager.sessionGeneration
-        ) return
+        ) {
+            surface.release()
+            return
+        }
+
+        val context = contextProvider() ?: run {
+            surface.release()
+            return
+        }
+        val settings = settingsProvider()
+        settings.refreshSettings(context)
+        val path = settings.mediaPath ?: run {
+            surface.release()
+            return
+        }
 
         lastST = st
+        lastOutputSurface = surface
         lastInjectedGen = surfaceManager.sessionGeneration
-        val path = settingsProvider().mediaPath ?: return
-        val context = contextProvider() ?: return
         logPipe("Legacy Hook: Injecting to SurfaceTexture")
         playWithSettings(context, path, surface, "Legacy")
     }
@@ -69,6 +84,7 @@ class XCamEngine(
             lastInjectedGen == currentGen
         ) return
         lastModernSurface = surface
+        lastOutputSurface = surface
         uiHandler.post { processInjection(surface) }
     }
 
@@ -82,7 +98,10 @@ class XCamEngine(
 
     private fun processInjection(surface: Surface) {
         val context = contextProvider() ?: return
-        val path = settingsProvider().mediaPath ?: return
+        val settings = settingsProvider()
+        settings.refreshSettings(context)
+        val path = settings.mediaPath ?: return
+        lastOutputSurface = surface
         injectToSurface(surface, context, path)
     }
 
@@ -103,6 +122,30 @@ class XCamEngine(
             lastInjectedSurfaceId = id
             playWithSettings(context, path, surface, "Engine")
         }
+    }
+
+    fun refreshActiveOutput() {
+        uiHandler.removeCallbacks(refreshOutputRunnable)
+        uiHandler.postDelayed(refreshOutputRunnable, 120L)
+    }
+
+    private val refreshOutputRunnable = Runnable {
+        val context = contextProvider() ?: return@Runnable
+        val surface = lastOutputSurface ?: return@Runnable
+        if (!surface.isValid) return@Runnable
+
+        val settings = settingsProvider()
+        settings.refreshSettings(context)
+        val path = settings.mediaPath ?: return@Runnable
+
+        logPipe(
+            "Live settings refresh: rot=${settings.rotationAngle} " +
+                "scale=${"%.2f".format(settings.scaleX)}x${"%.2f".format(settings.scaleY)} " +
+                "offset=${"%.2f".format(settings.offsetX)},${"%.2f".format(settings.offsetY)}",
+        )
+        mediaEngine.stop()
+        lastInjectedSurfaceId = com.hazbu.xcam.utils.SystemUtils.getSurfaceId(surface)
+        playWithSettings(context, path, surface, "LiveRefresh")
     }
 
     private fun playWithSettings(
