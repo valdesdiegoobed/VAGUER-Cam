@@ -26,12 +26,12 @@ jobs:
       - name: Build installable debug APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug -PAPP_VERSION_CODE=1 -PAPP_VERSION_NAME=0.1-test
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/VAGUER-Cam-0.1-test.apk
+          ./gradlew assembleDebug -PAPP_VERSION_CODE=2 -PAPP_VERSION_NAME=0.1.1-test
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/VAGUER-Cam-0.1.1-test.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VAGUER-Cam-0.1-test
-          path: app/build/outputs/apk/debug/VAGUER-Cam-0.1-test.apk
+          name: VAGUER-Cam-0.1.1-test
+          path: app/build/outputs/apk/debug/VAGUER-Cam-0.1.1-test.apk
           if-no-files-found: error
