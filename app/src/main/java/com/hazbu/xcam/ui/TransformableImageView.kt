@@ -1,19 +1,23 @@
 package com.hazbu.xcam.ui
 
 import android.content.Context
-import android.graphics.Matrix
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import androidx.appcompat.widget.AppCompatImageView
 import com.hazbu.xcam.data.Constants
-import kotlin.math.max
-import kotlin.math.min
 
 /**
- * Preview surface used by VAGUER Cam. Drag to move and pinch to zoom.
- * All gesture values are sanitized before they are persisted or rendered so a
- * malformed gesture cannot poison the saved state and crash the next launch.
+ * Stable editor preview for VAGUER Cam.
+ *
+ * The first editor implementation rebuilt ImageView matrices on every touch
+ * event and immediately synchronized Material sliders. On some devices that
+ * made pinch gestures race UI validation/layout work and could close the app.
+ *
+ * This version deliberately follows the simpler approach used by the original
+ * xCam preview: Android's own ImageView scale/rotation/translation properties
+ * do the rendering, while gestures only notify the activity once the gesture
+ * ends. That removes per-frame SharedPreferences writes and slider updates.
  */
 class TransformableImageView @JvmOverloads constructor(
     context: Context,
@@ -27,32 +31,39 @@ class TransformableImageView @JvmOverloads constructor(
     private var lastX = 0f
     private var lastY = 0f
     private var dragging = false
+    private var gestureDirty = false
 
     private val scaleDetector = ScaleGestureDetector(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            override fun onScale(detector: ScaleGestureDetector): Boolean {
-                val rawFactor = detector.scaleFactor
-                if (!rawFactor.isFinite() || rawFactor <= 0f) return false
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                gestureDirty = true
+                return true
+            }
 
-                val factor = rawFactor.coerceIn(0.75f, 1.33f)
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val raw = detector.scaleFactor
+                if (!raw.isFinite() || raw <= 0f) return false
+
+                val factor = raw.coerceIn(0.80f, 1.25f)
                 state.scaleX = safe(state.scaleX * factor, 1f, 0.25f, 4f)
                 state.scaleY = safe(state.scaleY * factor, 1f, 0.25f, 4f)
-                rebuildMatrix()
-                notifyChangedSafely()
+                applyTransform()
+                gestureDirty = true
                 return true
             }
         },
     )
 
     init {
-        scaleType = ScaleType.MATRIX
         isClickable = true
+        clipToOutline = true
+        applyScaleType()
     }
 
     fun setTransformState(newState: TransformState) {
         state = sanitize(newState)
-        rebuildMatrix()
+        applyTransform()
     }
 
     fun getTransformState(): TransformState = state.copy()
@@ -60,67 +71,57 @@ class TransformableImageView @JvmOverloads constructor(
     fun setScaleFactors(x: Float, y: Float) {
         state.scaleX = safe(x, 1f, 0.25f, 4f)
         state.scaleY = safe(y, 1f, 0.25f, 4f)
-        rebuildMatrix()
+        applyTransform()
         notifyChangedSafely()
     }
 
     fun rotateBy(degrees: Int) {
-        state.rotation = ((state.rotation + degrees) % 360 + 360) % 360
-        rebuildMatrix()
+        state.rotation = normalizeRotation(state.rotation + degrees)
+        applyTransform()
         notifyChangedSafely()
     }
 
     fun setMirrored(mirrored: Boolean) {
         state.mirrored = mirrored
-        rebuildMatrix()
+        applyTransform()
         notifyChangedSafely()
     }
 
     fun setFitMode(mode: String) {
-        state.fitMode = when (mode) {
-            Constants.FIT_MODE_FILL -> Constants.FIT_MODE_FILL
-            Constants.FIT_MODE_STRETCH -> Constants.FIT_MODE_STRETCH
-            else -> Constants.FIT_MODE_FIT
-        }
-        rebuildMatrix()
+        state.fitMode = normalizeFitMode(mode)
+        applyTransform()
         notifyChangedSafely()
     }
 
     fun centerContent() {
         state.offsetX = 0f
         state.offsetY = 0f
-        rebuildMatrix()
+        applyTransform()
         notifyChangedSafely()
     }
 
     fun resetTransform() {
-        val keepBrightness = safe(state.brightness, 0f, -1f, 1f)
-        val keepContrast = safe(state.contrast, 0f, -1f, 1f)
-        val keepSaturation = safe(state.saturation, 0f, -100f, 100f)
-        val keepSharpness = safe(state.sharpness, 0f, 0f, 1f)
+        val brightness = state.brightness
+        val contrast = state.contrast
+        val saturation = state.saturation
+        val sharpness = state.sharpness
         state = TransformState(
-            brightness = keepBrightness,
-            contrast = keepContrast,
-            saturation = keepSaturation,
-            sharpness = keepSharpness,
+            brightness = safe(brightness, 0f, -1f, 1f),
+            contrast = safe(contrast, 0f, -1f, 1f),
+            saturation = safe(saturation, 0f, -100f, 100f),
+            sharpness = safe(sharpness, 0f, 0f, 1f),
         )
-        rebuildMatrix()
+        applyTransform()
         notifyChangedSafely()
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        rebuildMatrix()
-    }
-
-    override fun setImageDrawable(drawable: android.graphics.drawable.Drawable?) {
-        super.setImageDrawable(drawable)
-        post { rebuildMatrix() }
+        applyTransform()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         try {
-            parent?.requestDisallowInterceptTouchEvent(true)
             scaleDetector.onTouchEvent(event)
 
             when (event.actionMasked) {
@@ -128,10 +129,21 @@ class TransformableImageView @JvmOverloads constructor(
                     lastX = event.x
                     lastY = event.y
                     dragging = true
+                    gestureDirty = false
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
+
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    parent?.requestDisallowInterceptTouchEvent(true)
                 }
 
                 MotionEvent.ACTION_MOVE -> {
-                    if (dragging && !scaleDetector.isInProgress && width > 0 && height > 0) {
+                    if (
+                        dragging &&
+                        event.pointerCount == 1 &&
+                        !scaleDetector.isInProgress &&
+                        width > 0 && height > 0
+                    ) {
                         val dx = event.x - lastX
                         val dy = event.y - lastY
                         if (dx.isFinite() && dy.isFinite()) {
@@ -149,8 +161,8 @@ class TransformableImageView @JvmOverloads constructor(
                             )
                             lastX = event.x
                             lastY = event.y
-                            rebuildMatrix()
-                            notifyChangedSafely()
+                            applyTransform()
+                            gestureDirty = true
                         }
                     }
                 }
@@ -158,14 +170,25 @@ class TransformableImageView @JvmOverloads constructor(
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     dragging = false
                     parent?.requestDisallowInterceptTouchEvent(false)
+                    if (gestureDirty) {
+                        // Snap to 0.01 only after the gesture ends. The visual
+                        // gesture stays smooth while saved values stay clean.
+                        state.scaleX = quantize(state.scaleX)
+                        state.scaleY = quantize(state.scaleY)
+                        state.offsetX = quantize(state.offsetX)
+                        state.offsetY = quantize(state.offsetY)
+                        applyTransform()
+                        notifyChangedSafely()
+                    }
+                    gestureDirty = false
                     performClick()
                 }
             }
         } catch (_: Throwable) {
-            // A preview gesture must never take down the whole editor. Reset
-            // only the active gesture and keep the last valid transform.
             dragging = false
+            gestureDirty = false
             parent?.requestDisallowInterceptTouchEvent(false)
+            // Never allow a malformed touch sequence to take down the editor.
         }
         return true
     }
@@ -175,63 +198,31 @@ class TransformableImageView @JvmOverloads constructor(
         return true
     }
 
-    private fun rebuildMatrix() {
-        val d = drawable ?: return
-        if (width <= 0 || height <= 0) return
-
+    private fun applyTransform() {
         state = sanitize(state)
+        applyScaleType()
 
-        val dw = max(1, d.intrinsicWidth).toFloat()
-        val dh = max(1, d.intrinsicHeight).toFloat()
-        val vw = width.toFloat()
-        val vh = height.toFloat()
-        if (!dw.isFinite() || !dh.isFinite() || !vw.isFinite() || !vh.isFinite()) return
+        // Use platform view transforms instead of rebuilding an ImageView
+        // Matrix. This is intentionally close to original xCam behavior.
+        pivotX = width / 2f
+        pivotY = height / 2f
+        scaleX = state.scaleX * if (state.mirrored) -1f else 1f
+        scaleY = state.scaleY
+        rotation = state.rotation.toFloat()
+        translationX = if (width > 0) state.offsetX * width / 2f else 0f
+        translationY = if (height > 0) state.offsetY * height / 2f else 0f
+    }
 
-        val fit = min(vw / dw, vh / dh)
-        val fill = max(vw / dw, vh / dh)
-
-        val baseX: Float
-        val baseY: Float
-        when (state.fitMode) {
-            Constants.FIT_MODE_FILL -> {
-                baseX = fill
-                baseY = fill
-            }
-
-            Constants.FIT_MODE_STRETCH -> {
-                baseX = vw / dw
-                baseY = vh / dh
-            }
-
-            else -> {
-                baseX = fit
-                baseY = fit
-            }
+    private fun applyScaleType() {
+        scaleType = when (state.fitMode) {
+            Constants.FIT_MODE_FILL -> ScaleType.CENTER_CROP
+            Constants.FIT_MODE_STRETCH -> ScaleType.FIT_XY
+            else -> ScaleType.FIT_CENTER
         }
-
-        val mirrorSign = if (state.mirrored) -1f else 1f
-        val matrix = Matrix()
-        matrix.postTranslate(-dw / 2f, -dh / 2f)
-        matrix.postScale(
-            baseX * state.scaleX * mirrorSign,
-            baseY * state.scaleY,
-        )
-        matrix.postRotate(state.rotation.toFloat())
-        matrix.postTranslate(
-            vw / 2f + state.offsetX * vw / 2f,
-            vh / 2f + state.offsetY * vh / 2f,
-        )
-        imageMatrix = matrix
     }
 
     private fun notifyChangedSafely() {
-        val snapshot = state.copy()
-        try {
-            onTransformChanged?.invoke(snapshot)
-        } catch (_: Throwable) {
-            // Keep the preview alive even if an external UI widget rejects an
-            // intermediate gesture value. The next stable value can continue.
-        }
+        runCatching { onTransformChanged?.invoke(state.copy()) }
     }
 
     private fun sanitize(input: TransformState): TransformState = input.copy(
@@ -239,19 +230,25 @@ class TransformableImageView @JvmOverloads constructor(
         scaleY = safe(input.scaleY, 1f, 0.25f, 4f),
         offsetX = safe(input.offsetX, 0f, -2f, 2f),
         offsetY = safe(input.offsetY, 0f, -2f, 2f),
-        rotation = ((input.rotation % 360) + 360) % 360,
-        fitMode = when (input.fitMode) {
-            Constants.FIT_MODE_FILL -> Constants.FIT_MODE_FILL
-            Constants.FIT_MODE_STRETCH -> Constants.FIT_MODE_STRETCH
-            else -> Constants.FIT_MODE_FIT
-        },
+        rotation = normalizeRotation(input.rotation),
+        fitMode = normalizeFitMode(input.fitMode),
         brightness = safe(input.brightness, 0f, -1f, 1f),
         contrast = safe(input.contrast, 0f, -1f, 1f),
         saturation = safe(input.saturation, 0f, -100f, 100f),
         sharpness = safe(input.sharpness, 0f, 0f, 1f),
     )
 
+    private fun normalizeFitMode(mode: String): String = when (mode) {
+        Constants.FIT_MODE_FILL -> Constants.FIT_MODE_FILL
+        Constants.FIT_MODE_STRETCH -> Constants.FIT_MODE_STRETCH
+        else -> Constants.FIT_MODE_FIT
+    }
+
+    private fun normalizeRotation(value: Int): Int = ((value % 360) + 360) % 360
+
     private fun safe(value: Float, fallback: Float, min: Float, max: Float): Float {
         return if (value.isFinite()) value.coerceIn(min, max) else fallback
     }
+
+    private fun quantize(value: Float): Float = (value * 100f).toInt() / 100f
 }
