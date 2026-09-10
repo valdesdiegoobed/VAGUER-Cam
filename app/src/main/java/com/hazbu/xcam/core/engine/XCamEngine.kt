@@ -18,6 +18,7 @@ class XCamEngine(
     private val surfaceManager: SurfaceManager,
     private val mediaEngine: MediaEngine,
     private val surfaceProvider: SurfaceProvider,
+    private val previewRotationProvider: (Context) -> Int,
     private val logAction: (String) -> Unit,
 ) {
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -155,6 +156,11 @@ class XCamEngine(
         tag: String,
     ) {
         val settings = settingsProvider()
+        val previewCompensation = previewRotationProvider(context)
+        logPipe(
+            "Output transform: editorRot=${settings.rotationAngle} " +
+                "cameraComp=$previewCompensation",
+        )
         mediaEngine.play(
             context = context,
             path = path,
@@ -170,6 +176,7 @@ class XCamEngine(
             brightness = settings.brightness,
             contrast = settings.contrast,
             saturation = settings.saturation,
+            outputRotationCompensation = previewCompensation,
         )
     }
 
