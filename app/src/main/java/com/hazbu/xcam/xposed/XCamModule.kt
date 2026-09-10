@@ -14,6 +14,7 @@ import com.hazbu.xcam.core.capture.CaptureManager
 import com.hazbu.xcam.core.capture.YuvFrameProcessor
 import com.hazbu.xcam.core.engine.MediaEngine
 import com.hazbu.xcam.core.engine.XCamEngine
+import com.hazbu.xcam.core.orientation.CameraOrientationManager
 import com.hazbu.xcam.core.settings.SettingsManager
 import com.hazbu.xcam.core.surface.SurfaceManager
 import com.hazbu.xcam.core.surface.SurfaceProvider
@@ -30,6 +31,7 @@ class XCamModule : XposedModule() {
     private var mContext: Context? = null
     private var hooksInstalled = false
     private var settingsObserver: ContentObserver? = null
+    @Volatile private var pendingCameraId: String? = null
     private val ignoreHooks = ThreadLocal.withInitial { false }
 
     private val injectors = XCamInjectors(this)
@@ -37,6 +39,7 @@ class XCamModule : XposedModule() {
     private val surfaceManager = SurfaceManager { printLog(it) }
     private val surfaceProvider = SurfaceProvider { printLog(it) }
     private val mediaEngine = MediaEngine { printLog(it) }
+    private val orientationManager = CameraOrientationManager { printLog(it) }
     private val yuvProcessor = YuvFrameProcessor()
 
     private val captureManager = CaptureManager(
@@ -50,6 +53,7 @@ class XCamModule : XposedModule() {
         surfaceManager = surfaceManager,
         mediaEngine = mediaEngine,
         surfaceProvider = surfaceProvider,
+        previewRotationProvider = { context -> orientationManager.previewCompensationDegrees(context) },
     ) { printLog(it) }
 
     fun isIgnoringHooks(): Boolean = ignoreHooks.get() ?: false
@@ -91,6 +95,14 @@ class XCamModule : XposedModule() {
     }
 
     fun stopEngine() = engine.stop()
+
+    fun updateCamera2Orientation(cameraId: String) {
+        pendingCameraId = cameraId
+        mContext?.let { context ->
+            orientationManager.updateCamera2(context, cameraId)
+            engine.refreshActiveOutput()
+        }
+    }
     fun handleCamera1Preview(st: SurfaceTexture) = engine.handleCamera1Preview(st)
     fun handleModernPreview(s: Surface) = engine.handleModernPreview(s)
     fun handleSurfaceViewPreview(h: SurfaceHolder) = engine.handleSurfaceViewPreview(h)
@@ -131,6 +143,8 @@ class XCamModule : XposedModule() {
         brightness = settings.brightness,
         contrast = settings.contrast,
         saturation = settings.saturation,
+        outputRotationCompensation =
+            mContext?.let { orientationManager.previewCompensationDegrees(it) } ?: 0,
         isIgnoringHooks = { isIgnoringHooks() },
         setIgnoringHooks = { setIgnoringHooks(it) },
     )
@@ -189,6 +203,9 @@ class XCamModule : XposedModule() {
                     mContext?.let {
                         settings.refreshSettings(it)
                         registerSettingsObserver(it)
+                        pendingCameraId?.let { cameraId ->
+                            orientationManager.updateCamera2(it, cameraId)
+                        }
                     }
                     isInitialized = true
                 }
