@@ -23,6 +23,8 @@
 
     <string name="section_transform">Transformar</string>
     <string name="section_image">Imagen</string>
+    <string name="label_rotation_default">Rotación: 0°</string>
+    <string name="label_rotation_value">Rotación: %d°</string>
     <string name="label_width_default">Ancho: 1.00×</string>
     <string name="label_height_default">Alto: 1.00×</string>
     <string name="label_width_value">Ancho: %.2f×</string>
@@ -37,13 +39,13 @@
     <string name="label_sharpness_value">Nitidez: %d%%</string>
     <string name="note_sharpness">La nitidez se procesa al pulsar “Aplicar a cámara” y está disponible para fotografías.</string>
 
-    <string name="note_restart">Después de cambiar la salida, reinicia la aplicación donde usarás la cámara para que cargue los ajustes nuevos.</string>
+    <string name="note_restart">Los cambios de transformación se envían automáticamente a la salida de la cámara virtual.</string>
     <string name="toast_media_removed">Contenido eliminado</string>
     <string name="toast_media_imported">Contenido importado correctamente</string>
     <string name="toast_media_import_failed">No se pudo importar el contenido: %s</string>
     <string name="toast_invalid_media">Selecciona únicamente una imagen o un video.</string>
     <string name="toast_select_media_first">Primero selecciona una foto o video.</string>
-    <string name="toast_settings_saved">Ajustes guardados. Reinicia la aplicación de destino.</string>
+    <string name="toast_settings_saved">Ajustes guardados y enviados a la cámara virtual.</string>
     <string name="toast_conversion_failed">No se pudo preparar la fotografía para la cámara.</string>
 
     <string name="desc_media_preview">Vista previa del contenido</string>
