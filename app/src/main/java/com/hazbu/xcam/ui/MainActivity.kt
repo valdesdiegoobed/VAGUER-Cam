@@ -7,7 +7,6 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -19,21 +18,25 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.color.DynamicColors
-import com.google.android.material.color.MaterialColors
 import com.google.android.material.slider.Slider
 import com.hazbu.xcam.R
 import com.hazbu.xcam.data.Constants
 import com.hazbu.xcam.utils.ImageProcessor
 import com.hazbu.xcam.utils.MediaConverter
-import io.github.libxposed.service.XposedService
-import io.github.libxposed.service.XposedServiceHelper
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.Executors
 import kotlin.math.abs
 
-class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener {
+/**
+ * VAGUER Cam editor.
+ *
+ * The manager/editor intentionally does not talk directly to a specific Xposed
+ * manager service. Vector/LSPosed compatibility is handled by the module side,
+ * while this activity stays usable as a normal Android app even when a manager
+ * service is unavailable or temporarily disabled.
+ */
+class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val SOURCE_PREFIX = "source."
@@ -79,7 +82,6 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
     private var state = TransformState()
     private var currentSourcePath = ""
     private var currentIsImage = false
-    private var mXposedService: XposedService? = null
     private val worker = Executors.newSingleThreadExecutor()
 
     private val mediaPickerLauncher = registerForActivityResult(
@@ -91,15 +93,30 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        DynamicColors.applyToActivityIfAvailable(this)
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        // Edge-to-edge is cosmetic only. Never let it prevent the editor from
+        // opening on a ROM or rooted environment with unusual window hooks.
+        runCatching { enableEdgeToEdge() }
         setContentView(R.layout.activity_main)
-        XposedServiceHelper.registerListener(this)
-        setupWindowInsets()
+
+        runCatching { setupWindowInsets() }
         bindViews()
-        setupControls()
-        loadSettings()
+
+        try {
+            setupControls()
+            loadSettings()
+        } catch (t: Throwable) {
+            // Recover from an invalid saved value or a vendor-specific widget
+            // problem instead of allowing a launch crash loop.
+            getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE).edit { clear() }
+            state = TransformState()
+            currentSourcePath = ""
+            currentIsImage = false
+            runCatching { syncAllControls() }
+            toast("VAGUER Cam inició en modo de recuperación")
+        }
+
         updateModuleStatusUI()
     }
 
@@ -111,16 +128,6 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
     override fun onDestroy() {
         worker.shutdownNow()
         super.onDestroy()
-    }
-
-    override fun onServiceBind(service: XposedService) {
-        mXposedService = service
-        runOnUiThread { updateModuleStatusUI() }
-    }
-
-    override fun onServiceDied(service: XposedService) {
-        mXposedService = null
-        runOnUiThread { updateModuleStatusUI() }
     }
 
     private fun setupWindowInsets() {
@@ -264,6 +271,8 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
         slider.valueFrom = from
         slider.valueTo = to
         slider.stepSize = step
+        // Keep a valid value in the range before the first layout/draw pass.
+        slider.value = if (0f in from..to) 0f else 1f.coerceIn(from, to)
     }
 
     private fun openMediaPicker() {
@@ -346,6 +355,7 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
             btnDeleteMedia.visibility = View.GONE
             btnApply.isEnabled = false
             tvMediaType.text = getString(R.string.label_no_media)
+            sliderSharpness.isEnabled = false
             return
         }
 
@@ -364,9 +374,12 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
                 ivPreview.setImageBitmap(ImageProcessor.decodeOriented(currentSourcePath, 1280))
             } else {
                 val retriever = MediaMetadataRetriever()
-                retriever.setDataSource(currentSourcePath)
-                ivPreview.setImageBitmap(retriever.getFrameAtTime(1_000_000))
-                retriever.release()
+                try {
+                    retriever.setDataSource(currentSourcePath)
+                    ivPreview.setImageBitmap(retriever.getFrameAtTime(1_000_000))
+                } finally {
+                    retriever.release()
+                }
             }
             ivPreview.setTransformState(state)
             applyPreviewColorFilter()
@@ -511,6 +524,7 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
     }
 
     private fun syncImageSliders() {
+        if (!::sliderBrightness.isInitialized) return
         sliderBrightness.value = state.brightness.coerceIn(-1f, 1f)
         sliderContrast.value = state.contrast.coerceIn(-1f, 1f)
         sliderSaturation.value = state.saturation.coerceIn(-100f, 100f)
@@ -529,12 +543,9 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
     }
 
     private fun updateMirrorButton() {
-        val active = MaterialColors.getColor(btnMirror, androidx.appcompat.R.attr.colorPrimary)
-        val inactive = MaterialColors.getColor(
-            btnMirror,
-            com.google.android.material.R.attr.colorSecondaryContainer,
-        )
-        btnMirror.setBackgroundColor(if (state.mirrored) active else inactive)
+        // Avoid theme-attribute lookups here; some vendor/root combinations can
+        // throw while resolving Material colors during activity startup.
+        btnMirror.alpha = if (state.mirrored) 1f else 0.72f
     }
 
     private fun deleteMedia() {
@@ -542,14 +553,13 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
         currentSourcePath = ""
         currentIsImage = false
         state = TransformState()
-        getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE).edit {
-            clear()
-        }
+        getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE).edit { clear() }
         ivPreview.setImageDrawable(null)
         ivPreview.clearColorFilter()
         tvNoPreview.visibility = View.VISIBLE
         btnDeleteMedia.visibility = View.GONE
         btnApply.isEnabled = false
+        sliderSharpness.isEnabled = false
         tvMediaType.text = getString(R.string.label_no_media)
         syncAllControls()
         toast(getString(R.string.toast_media_removed))
@@ -565,66 +575,13 @@ class MainActivity : AppCompatActivity(), XposedServiceHelper.OnServiceListener 
     }
 
     private fun updateModuleStatusUI() {
-        val officialScope = getOfficialScope().filter { it != packageName }
-        val isActive = (mXposedService != null && officialScope.isNotEmpty()) || checkSelfActive()
-        if (isActive) {
-            tvModuleStatus.text = getString(R.string.status_module_active)
-            val active = MaterialColors.getColor(tvModuleStatus, androidx.appcompat.R.attr.colorPrimary)
-            tvModuleStatus.setTextColor(active)
-            cardModuleStatus.strokeColor = active
-            refreshLSPosedScope()
-        } else {
-            tvModuleStatus.text = getString(R.string.status_module_inactive)
-            val inactive = MaterialColors.getColor(
-                tvModuleStatus,
-                com.google.android.material.R.attr.colorOnSurfaceVariant,
-            )
-            val stroke = MaterialColors.getColor(
-                tvModuleStatus,
-                com.google.android.material.R.attr.colorOutline,
-            )
-            tvModuleStatus.setTextColor(inactive)
-            cardModuleStatus.strokeColor = stroke
-            cardScopedApps.visibility = View.GONE
-        }
-    }
-
-    private fun checkSelfActive(): Boolean = false
-
-    private fun getOfficialScope(): List<String> {
-        return try {
-            mXposedService?.scope ?: emptyList()
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
-
-    private fun refreshLSPosedScope() {
+        if (!::tvModuleStatus.isInitialized) return
+        // Vector controls activation/scope. Keeping the editor independent of
+        // the manager service prevents startup crashes and stale status checks.
+        tvModuleStatus.text = "Módulo: actívalo en Vector y selecciona la app de destino"
+        cardModuleStatus.alpha = 1f
+        cardScopedApps.visibility = View.GONE
         layoutScopedApps.removeAllViews()
-        val officialScope = getOfficialScope().filter { it != packageName }
-        if (officialScope.isEmpty()) {
-            cardScopedApps.visibility = View.GONE
-            return
-        }
-        officialScope.forEach { addAppIconToLayout(it) }
-        cardScopedApps.visibility = View.VISIBLE
-    }
-
-    private fun addAppIconToLayout(pkgName: String) {
-        try {
-            val icon = packageManager.getApplicationIcon(pkgName)
-            val size = (40 * resources.displayMetrics.density).toInt()
-            val image = ImageView(this).apply {
-                val lp = LinearLayout.LayoutParams(size, size)
-                lp.setMargins(0, 0, 16, 0)
-                layoutParams = lp
-                setImageDrawable(icon)
-                contentDescription = pkgName
-                setOnClickListener { toast(pkgName) }
-            }
-            layoutScopedApps.addView(image)
-        } catch (_: Exception) {
-        }
     }
 
     private fun toast(message: String) {
