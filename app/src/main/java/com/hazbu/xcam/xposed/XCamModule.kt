@@ -1,8 +1,12 @@
 package com.hazbu.xcam.xposed
 
 import android.content.Context
+import android.database.ContentObserver
 import android.graphics.SurfaceTexture
+import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.Surface
 import android.view.SurfaceHolder
 import androidx.media3.common.util.UnstableApi
@@ -13,6 +17,7 @@ import com.hazbu.xcam.core.engine.XCamEngine
 import com.hazbu.xcam.core.settings.SettingsManager
 import com.hazbu.xcam.core.surface.SurfaceManager
 import com.hazbu.xcam.core.surface.SurfaceProvider
+import com.hazbu.xcam.data.Constants
 import com.hazbu.xcam.utils.Logger
 import com.hazbu.xcam.utils.SystemUtils
 import com.hazbu.xcam.utils.UIUtils
@@ -24,6 +29,7 @@ class XCamModule : XposedModule() {
     private var isInitialized = false
     private var mContext: Context? = null
     private var hooksInstalled = false
+    private var settingsObserver: ContentObserver? = null
     private val ignoreHooks = ThreadLocal.withInitial { false }
 
     private val injectors = XCamInjectors(this)
@@ -90,24 +96,43 @@ class XCamModule : XposedModule() {
     fun handleSurfaceViewPreview(h: SurfaceHolder) = engine.handleSurfaceViewPreview(h)
     fun getDummySurface() = engine.getDummySurface()
 
-    fun handleCapture(w: Int, h: Int) = captureManager.handleCapture(
-        settings.mediaPath,
-        w,
-        h,
-        settings.rotationAngle,
-        settings.isMirrored,
-        { isIgnoringHooks() },
-        { setIgnoringHooks(it) },
-    )
+    fun handleCapture(w: Int, h: Int): ByteArray? {
+        mContext?.let { settings.refreshSettings(it) }
+        return captureManager.handleCapture(
+            path = settings.mediaPath,
+            width = w,
+            height = h,
+            rotationAngle = settings.rotationAngle,
+            isMirrored = settings.isMirrored,
+            scaleX = settings.scaleX,
+            scaleY = settings.scaleY,
+            offsetX = settings.offsetX,
+            offsetY = settings.offsetY,
+            fitMode = settings.fitMode,
+            brightness = settings.brightness,
+            contrast = settings.contrast,
+            saturation = settings.saturation,
+            isIgnoringHooks = { isIgnoringHooks() },
+            setIgnoringHooks = { setIgnoringHooks(it) },
+        )
+    }
 
     fun handleStreamFrame(w: Int, h: Int) = captureManager.handleStreamFrame(
-        settings.mediaPath,
-        w,
-        h,
-        settings.rotationAngle,
-        settings.isMirrored,
-        { isIgnoringHooks() },
-        { setIgnoringHooks(it) },
+        path = settings.mediaPath,
+        width = w,
+        height = h,
+        rotationAngle = settings.rotationAngle,
+        isMirrored = settings.isMirrored,
+        scaleX = settings.scaleX,
+        scaleY = settings.scaleY,
+        offsetX = settings.offsetX,
+        offsetY = settings.offsetY,
+        fitMode = settings.fitMode,
+        brightness = settings.brightness,
+        contrast = settings.contrast,
+        saturation = settings.saturation,
+        isIgnoringHooks = { isIgnoringHooks() },
+        setIgnoringHooks = { setIgnoringHooks(it) },
     )
 
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
@@ -130,6 +155,27 @@ class XCamModule : XposedModule() {
         injectors.install(param)
     }
 
+    private fun registerSettingsObserver(context: Context) {
+        if (settingsObserver != null) return
+
+        val uri = Uri.parse("content://${Constants.AUTHORITY}")
+        val observer =
+            object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean, changedUri: Uri?) {
+                    settings.refreshSettings(context)
+                    engine.refreshActiveOutput()
+                    logInit("Settings refreshed from manager")
+                }
+            }
+
+        try {
+            context.contentResolver.registerContentObserver(uri, true, observer)
+            settingsObserver = observer
+        } catch (e: Throwable) {
+            logInit("Settings observer unavailable: ${e.message}")
+        }
+    }
+
     private fun hookContextInit() {
         try {
             val attachMethod = Class.forName("android.content.ContextWrapper")
@@ -140,7 +186,10 @@ class XCamModule : XposedModule() {
                 if (!isInitialized) {
                     mContext = chain.thisObject as? Context
                     logInit("Context Initialized: ${mContext?.packageName}")
-                    mContext?.let { settings.refreshSettings(it) }
+                    mContext?.let {
+                        settings.refreshSettings(it)
+                        registerSettingsObserver(it)
+                    }
                     isInitialized = true
                 }
                 result
