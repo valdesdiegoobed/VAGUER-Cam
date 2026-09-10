@@ -14,8 +14,11 @@ object ImageProcessor {
         BitmapFactory.decodeFile(path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
 
+        // Keep decoded photos close to the requested working size. The previous
+        // implementation could decode roughly twice as large, which made a
+        // high-resolution photo plus preview/sharpening consume a lot of RAM.
         var sample = 1
-        while (max(bounds.outWidth / sample, bounds.outHeight / sample) > maxSide * 2) {
+        while (max(bounds.outWidth / sample, bounds.outHeight / sample) > maxSide) {
             sample *= 2
         }
 
@@ -76,8 +79,11 @@ object ImageProcessor {
      */
     fun sharpen(source: Bitmap, amount: Float): Bitmap {
         val strength = amount.coerceIn(0f, 1f)
+
+        // No extra bitmap allocation when sharpness is zero. This is the
+        // default path and greatly lowers peak memory while a photo is loaded.
         if (strength < 0.01f || source.width < 3 || source.height < 3) {
-            return source.copy(Bitmap.Config.ARGB_8888, false)
+            return source
         }
 
         val width = source.width
