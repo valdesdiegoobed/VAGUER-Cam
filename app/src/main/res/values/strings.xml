@@ -1,18 +1,56 @@
 <resources>
     <string name="app_name">VAGUER Cam</string>
     <string name="title_manager">VAGUER Cam</string>
-    <string name="label_media_preview">Vista previa</string>
+    <string name="subtitle_manager">Cámara virtual · Foto y video</string>
+
+    <string name="label_output_preview">Vista de salida</string>
     <string name="label_none">Sin contenido</string>
-    <string name="btn_select_video">Seleccionar foto o video</string>
-    <string name="note_restart">Nota: reinicia la aplicación de destino para aplicar los cambios.</string>
+    <string name="label_no_media">Selecciona una foto o video</string>
+    <string name="label_photo_ready">Foto lista</string>
+    <string name="label_video_ready">Video listo · se repetirá en bucle</string>
+    <string name="label_processing_photo">Procesando fotografía…</string>
+    <string name="hint_gestures">Arrastra para mover y usa dos dedos para ampliar o reducir.</string>
+
+    <string name="btn_select_media">Foto / Video</string>
+    <string name="btn_apply">Aplicar a cámara</string>
+    <string name="btn_delete_media">Eliminar contenido</string>
+    <string name="btn_center">Centrar</string>
+    <string name="btn_fit">Ajustar</string>
+    <string name="btn_fill">Llenar</string>
+    <string name="btn_stretch">Estirar</string>
+    <string name="btn_reset">Restablecer</string>
+    <string name="btn_enhance">Mejora automática</string>
+
+    <string name="section_transform">Transformar</string>
+    <string name="section_image">Imagen</string>
+    <string name="label_width_default">Ancho: 1.00×</string>
+    <string name="label_height_default">Alto: 1.00×</string>
+    <string name="label_width_value">Ancho: %.2f×</string>
+    <string name="label_height_value">Alto: %.2f×</string>
+    <string name="label_brightness_default">Brillo: 0%%</string>
+    <string name="label_contrast_default">Contraste: 0%%</string>
+    <string name="label_saturation_default">Saturación: 0%%</string>
+    <string name="label_sharpness_default">Nitidez: 0%%</string>
+    <string name="label_brightness_value">Brillo: %d%%</string>
+    <string name="label_contrast_value">Contraste: %d%%</string>
+    <string name="label_saturation_value">Saturación: %d%%</string>
+    <string name="label_sharpness_value">Nitidez: %d%%</string>
+    <string name="note_sharpness">La nitidez se procesa al pulsar “Aplicar a cámara” y está disponible para fotografías.</string>
+
+    <string name="note_restart">Después de cambiar la salida, reinicia la aplicación donde usarás la cámara para que cargue los ajustes nuevos.</string>
     <string name="toast_media_removed">Contenido eliminado</string>
     <string name="toast_media_imported">Contenido importado correctamente</string>
     <string name="toast_media_import_failed">No se pudo importar el contenido: %s</string>
+    <string name="toast_invalid_media">Selecciona únicamente una imagen o un video.</string>
+    <string name="toast_select_media_first">Primero selecciona una foto o video.</string>
+    <string name="toast_settings_saved">Ajustes guardados. Reinicia la aplicación de destino.</string>
+    <string name="toast_conversion_failed">No se pudo preparar la fotografía para la cámara.</string>
+
     <string name="desc_media_preview">Vista previa del contenido</string>
-    <string name="status_module_active">Activo</string>
-    <string name="status_module_inactive">Inactivo</string>
+    <string name="status_module_active">Módulo activo</string>
+    <string name="status_module_inactive">Módulo inactivo</string>
     <string name="desc_rotate_left">Girar a la izquierda</string>
     <string name="desc_rotate_right">Girar a la derecha</string>
-    <string name="desc_mirror">Espejo</string>
+    <string name="desc_mirror">Espejo horizontal</string>
     <string name="label_active_scopes">Aplicaciones activas</string>
 </resources>
