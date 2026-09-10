@@ -34,13 +34,15 @@ object XCamCapture {
         brightness: Float = 0f,
         contrast: Float = 0f,
         saturation: Float = 0f,
+        outputRotationCompensation: Int = 0,
         timeMs: Int = 1000,
         printLog: (String) -> Unit,
     ): ByteArray? {
         printLog(
             "Capture Process: Starting for $path (Time: $timeMs ms, rot=$rotation, " +
                 "scale=${"%.2f".format(scaleX)}x${"%.2f".format(scaleY)}, " +
-                "offset=${"%.2f".format(offsetX)},${"%.2f".format(offsetY)}, fit=$fitMode)",
+                "offset=${"%.2f".format(offsetX)},${"%.2f".format(offsetY)}, fit=$fitMode, " +
+                "camComp=$outputRotationCompensation)",
         )
 
         return try {
@@ -182,14 +184,36 @@ object XCamCapture {
             canvas.drawBitmap(rawBitmap, null, baseRect, paint)
             canvas.restore()
 
+            // Live camera consumers treat the replacement as a raw sensor frame
+            // and apply their own sensor-to-display rotation. Pre-rotate the
+            // complete editor result so their transform restores the exact
+            // orientation and position shown in VAGUER Cam.
+            val safeCompensation =
+                ((outputRotationCompensation % 360) + 360) % 360
+            val outputBitmap =
+                if (safeCompensation == 0) {
+                    workingBitmap
+                } else {
+                    Bitmap.createBitmap(workingW, workingH, Bitmap.Config.ARGB_8888).also {
+                        val outputCanvas = Canvas(it)
+                        outputCanvas.drawColor(Color.BLACK)
+                        outputCanvas.rotate(
+                            safeCompensation.toFloat(),
+                            workingW / 2f,
+                            workingH / 2f,
+                        )
+                        outputCanvas.drawBitmap(workingBitmap, 0f, 0f, null)
+                    }
+                }
+
             val safeTargetW = targetW.coerceAtLeast(1)
             val safeTargetH = targetH.coerceAtLeast(1)
             val finalBitmap =
                 if (safeTargetW == workingW && safeTargetH == workingH) {
-                    workingBitmap
+                    outputBitmap
                 } else {
                     Bitmap.createScaledBitmap(
-                        workingBitmap,
+                        outputBitmap,
                         safeTargetW,
                         safeTargetH,
                         true,
@@ -206,8 +230,11 @@ object XCamCapture {
             )
 
             if (!rawBitmap.isRecycled) rawBitmap.recycle()
-            if (finalBitmap !== workingBitmap && !workingBitmap.isRecycled) {
+            if (outputBitmap !== workingBitmap && !workingBitmap.isRecycled) {
                 workingBitmap.recycle()
+            }
+            if (finalBitmap !== outputBitmap && !outputBitmap.isRecycled) {
+                outputBitmap.recycle()
             }
             if (!finalBitmap.isRecycled) finalBitmap.recycle()
 
