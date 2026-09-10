@@ -81,6 +81,12 @@ class TransformableImageView @JvmOverloads constructor(
         notifyChangedSafely()
     }
 
+    fun setRotationDegrees(degrees: Int) {
+        state.rotation = normalizeRotation(degrees)
+        applyTransform()
+        notifyChangedSafely()
+    }
+
     fun setMirrored(mirrored: Boolean) {
         state.mirrored = mirrored
         applyTransform()
