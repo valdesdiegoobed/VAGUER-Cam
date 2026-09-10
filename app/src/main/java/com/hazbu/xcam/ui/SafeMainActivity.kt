@@ -6,6 +6,8 @@ import android.graphics.ColorMatrixColorFilter
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -48,6 +50,7 @@ class SafeMainActivity : AppCompatActivity() {
     private lateinit var tvMediaType: TextView
     private lateinit var tvScaleX: TextView
     private lateinit var tvScaleY: TextView
+    private lateinit var tvRotation: TextView
     private lateinit var tvBrightness: TextView
     private lateinit var tvContrast: TextView
     private lateinit var tvSaturation: TextView
@@ -69,6 +72,7 @@ class SafeMainActivity : AppCompatActivity() {
 
     private lateinit var sliderScaleX: Slider
     private lateinit var sliderScaleY: Slider
+    private lateinit var sliderRotation: Slider
     private lateinit var sliderBrightness: Slider
     private lateinit var sliderContrast: Slider
     private lateinit var sliderSaturation: Slider
@@ -82,6 +86,15 @@ class SafeMainActivity : AppCompatActivity() {
     private var currentIsImage = false
     private var previewBitmap: Bitmap? = null
     private val worker = Executors.newSingleThreadExecutor()
+    private val settingsNotifyHandler = Handler(Looper.getMainLooper())
+    private val settingsNotifyRunnable = Runnable {
+        runCatching {
+            contentResolver.notifyChange(
+                Uri.parse("content://${Constants.AUTHORITY}"),
+                null,
+            )
+        }
+    }
 
     private val mediaPickerLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -109,6 +122,7 @@ class SafeMainActivity : AppCompatActivity() {
         runCatching { ivPreview.setImageDrawable(null) }
         previewBitmap?.let { if (!it.isRecycled) it.recycle() }
         previewBitmap = null
+        settingsNotifyHandler.removeCallbacksAndMessages(null)
         worker.shutdownNow()
         super.onDestroy()
     }
@@ -129,6 +143,7 @@ class SafeMainActivity : AppCompatActivity() {
         tvMediaType = findViewById(R.id.tv_media_type)
         tvScaleX = findViewById(R.id.tv_scale_x)
         tvScaleY = findViewById(R.id.tv_scale_y)
+        tvRotation = findViewById(R.id.tv_rotation)
         tvBrightness = findViewById(R.id.tv_brightness)
         tvContrast = findViewById(R.id.tv_contrast)
         tvSaturation = findViewById(R.id.tv_saturation)
@@ -150,6 +165,7 @@ class SafeMainActivity : AppCompatActivity() {
 
         sliderScaleX = findViewById(R.id.slider_scale_x)
         sliderScaleY = findViewById(R.id.slider_scale_y)
+        sliderRotation = findViewById(R.id.slider_rotation)
         sliderBrightness = findViewById(R.id.slider_brightness)
         sliderContrast = findViewById(R.id.slider_contrast)
         sliderSaturation = findViewById(R.id.slider_saturation)
@@ -162,6 +178,8 @@ class SafeMainActivity : AppCompatActivity() {
     private fun setupControls() {
         configureContinuousSlider(sliderScaleX, 0.25f, 4f, 1f)
         configureContinuousSlider(sliderScaleY, 0.25f, 4f, 1f)
+        configureContinuousSlider(sliderRotation, 0f, 359f, 0f)
+        sliderRotation.stepSize = 1f
         configureContinuousSlider(sliderBrightness, -1f, 1f, 0f)
         configureContinuousSlider(sliderContrast, -1f, 1f, 0f)
         configureContinuousSlider(sliderSaturation, -100f, 100f, 0f)
@@ -229,6 +247,12 @@ class SafeMainActivity : AppCompatActivity() {
             if (fromUser) {
                 state.scaleY = value.coerceIn(0.25f, 4f)
                 ivPreview.setScaleFactors(state.scaleX, state.scaleY)
+            }
+        }
+        sliderRotation.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                state.rotation = value.toInt().coerceIn(0, 359)
+                ivPreview.setRotationDegrees(state.rotation)
             }
         }
         sliderBrightness.addOnChangeListener { _, value, fromUser ->
@@ -457,6 +481,7 @@ class SafeMainActivity : AppCompatActivity() {
         getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE).edit {
             putString(Constants.KEY_MEDIA_PATH, path)
         }
+        notifyOutputChanged(immediate = true)
     }
 
     private fun saveState() {
@@ -472,6 +497,16 @@ class SafeMainActivity : AppCompatActivity() {
             putFloat(Constants.KEY_CONTRAST, state.contrast)
             putFloat(Constants.KEY_SATURATION, state.saturation)
             putFloat(Constants.KEY_SHARPNESS, state.sharpness)
+        }
+        notifyOutputChanged()
+    }
+
+    private fun notifyOutputChanged(immediate: Boolean = false) {
+        settingsNotifyHandler.removeCallbacks(settingsNotifyRunnable)
+        if (immediate) {
+            settingsNotifyHandler.post(settingsNotifyRunnable)
+        } else {
+            settingsNotifyHandler.postDelayed(settingsNotifyRunnable, 180L)
         }
     }
 
@@ -523,6 +558,7 @@ class SafeMainActivity : AppCompatActivity() {
     private fun syncTransformSliders() {
         sliderScaleX.value = state.scaleX.coerceIn(0.25f, 4f)
         sliderScaleY.value = state.scaleY.coerceIn(0.25f, 4f)
+        sliderRotation.value = state.rotation.coerceIn(0, 359).toFloat()
         updateLabels()
     }
 
@@ -537,6 +573,7 @@ class SafeMainActivity : AppCompatActivity() {
     private fun updateLabels() {
         tvScaleX.text = getString(R.string.label_width_value, state.scaleX)
         tvScaleY.text = getString(R.string.label_height_value, state.scaleY)
+        tvRotation.text = getString(R.string.label_rotation_value, state.rotation)
         tvBrightness.text = getString(R.string.label_brightness_value, (state.brightness * 100).toInt())
         tvContrast.text = getString(R.string.label_contrast_value, (state.contrast * 100).toInt())
         tvSaturation.text = getString(R.string.label_saturation_value, state.saturation.toInt())
@@ -555,6 +592,7 @@ class SafeMainActivity : AppCompatActivity() {
         currentIsImage = false
         state = TransformState()
         getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE).edit { clear() }
+        notifyOutputChanged(immediate = true)
         showEmptyPreview()
         syncAllControls()
         toast(getString(R.string.toast_media_removed))
