@@ -108,6 +108,7 @@ class MediaEngine(private val logAction: (String) -> Unit) {
         brightness: Float = 0f,
         contrast: Float = 0f,
         saturation: Float = 0f,
+        outputRotationCompensation: Int = 0,
         onPrepared: ((ExoPlayer?) -> Unit)? = null,
     ) {
         mainHandler.post {
@@ -127,7 +128,7 @@ class MediaEngine(private val logAction: (String) -> Unit) {
                 val uri = path.toUri()
                 log(
                     tag,
-                    "Loading media: $path | rot=$rotationAngle | scale=${"%.2f".format(scaleX)}x${"%.2f".format(scaleY)} | offset=${"%.2f".format(offsetX)},${"%.2f".format(offsetY)} | fit=$fitMode",
+                    "Loading media: $path | rot=$rotationAngle | camComp=$outputRotationCompensation | scale=${"%.2f".format(scaleX)}x${"%.2f".format(scaleY)} | offset=${"%.2f".format(offsetX)},${"%.2f".format(offsetY)} | fit=$fitMode",
                 )
 
                 val renderersFactory =
@@ -173,6 +174,16 @@ class MediaEngine(private val logAction: (String) -> Unit) {
                             mirrored = isMirrored,
                         ),
                     )
+                }
+
+                // The target camera stack rotates raw sensor frames for the display.
+                // Pre-rotate the complete edited frame so that the target's normal
+                // camera transform cancels only this compensation and leaves the
+                // editor orientation/position unchanged.
+                val normalizedCompensation =
+                    ((outputRotationCompensation % 360) + 360) % 360
+                if (normalizedCompensation != 0) {
+                    effects.add(FixedRotationEffect(normalizedCompensation))
                 }
 
                 val safeBrightness = brightness.coerceIn(-1f, 1f)
@@ -294,6 +305,30 @@ class MediaEngine(private val logAction: (String) -> Unit) {
                     floatArrayOf(
                         c * sx, -s * sy, tx,
                         s * sx, c * sy, ty,
+                        0f, 0f, 1f,
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Rotates the complete editor result into raw-camera orientation while
+     * keeping the fixed square canvas.
+     */
+    private class FixedRotationEffect(
+        private val rotationAngle: Int,
+    ) : MatrixTransformation {
+        override fun getMatrix(presentationTimeUs: Long): Matrix {
+            val radians = Math.toRadians(-rotationAngle.toDouble())
+            val c = cos(radians).toFloat()
+            val s = sin(radians).toFloat()
+
+            return Matrix().apply {
+                setValues(
+                    floatArrayOf(
+                        c, -s, 0f,
+                        s, c, 0f,
                         0f, 0f, 1f,
                     ),
                 )
