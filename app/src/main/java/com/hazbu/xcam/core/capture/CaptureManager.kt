@@ -90,6 +90,7 @@ class CaptureManager(
         brightness: Float,
         contrast: Float,
         saturation: Float,
+        outputRotationCompensation: Int = 0,
         timeMs: Int,
         setIgnoringHooks: (Boolean) -> Unit,
     ): ByteArray? {
@@ -110,6 +111,7 @@ class CaptureManager(
                 brightness = brightness,
                 contrast = contrast,
                 saturation = saturation,
+                outputRotationCompensation = outputRotationCompensation,
                 timeMs = timeMs,
                 printLog = logAction,
             )
@@ -158,6 +160,7 @@ class CaptureManager(
                     brightness = brightness,
                     contrast = contrast,
                     saturation = saturation,
+                    outputRotationCompensation = 0,
                     timeMs = captureTimeMs,
                     setIgnoringHooks = setIgnoringHooks,
                 ).also {
@@ -181,6 +184,7 @@ class CaptureManager(
         brightness: Float,
         contrast: Float,
         saturation: Float,
+        outputRotationCompensation: Int = 0,
         isIgnoringHooks: () -> Boolean,
         setIgnoringHooks: (Boolean) -> Unit,
     ): ByteArray? {
@@ -223,6 +227,7 @@ class CaptureManager(
                 append('|').append(brightness)
                 append('|').append(contrast)
                 append('|').append(saturation)
+                append('|').append(outputRotationCompensation)
             }
 
         synchronized(this) {
@@ -258,6 +263,7 @@ class CaptureManager(
                         brightness = brightness,
                         contrast = contrast,
                         saturation = saturation,
+                        outputRotationCompensation = outputRotationCompensation,
                         timeMs = frameTimeMs,
                         setIgnoringHooks = setIgnoringHooks,
                     )?.let {
