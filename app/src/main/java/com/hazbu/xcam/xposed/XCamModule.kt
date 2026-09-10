@@ -25,19 +25,19 @@ class XCamModule : XposedModule() {
     private var mContext: Context? = null
     private var hooksInstalled = false
     private val ignoreHooks = ThreadLocal.withInitial { false }
-    
+
     private val injectors = XCamInjectors(this)
     private val settings = SettingsManager()
     private val surfaceManager = SurfaceManager { printLog(it) }
     private val surfaceProvider = SurfaceProvider { printLog(it) }
     private val mediaEngine = MediaEngine { printLog(it) }
     private val yuvProcessor = YuvFrameProcessor()
-    
+
     private val captureManager = CaptureManager(
         contextProvider = { mContext },
         refreshSettingsAction = { settings.refreshSettings(it) },
     ) { printLog(it) }
-    
+
     private val engine = XCamEngine(
         contextProvider = { mContext },
         settingsProvider = { settings },
@@ -55,7 +55,7 @@ class XCamModule : XposedModule() {
         set(value) { surfaceManager.previewSwapped = value }
 
     fun printLog(msg: String, tr: Throwable? = null) {
-        if (tr != null || (msg.contains("Error") || msg.contains("failed") || msg.contains("FATAL"))) {
+        if (tr != null || msg.contains("Error") || msg.contains("failed") || msg.contains("FATAL")) {
             Logger.e(this, msg, tr)
         } else {
             Logger.i(this, msg)
@@ -64,45 +64,48 @@ class XCamModule : XposedModule() {
 
     fun logInit(msg: String) = Logger.i(this, "[INIT] $msg")
     fun logHook(msg: String) = Logger.d(this, "[HOOK] $msg")
-
     fun showToast(message: String) = UIUtils.showToast(mContext, message) { printLog(it) }
-
     fun isCapturingState() = captureManager.isCapturing
 
     fun triggerCaptureState() {
         captureManager.triggerCaptureState { engine.getCurrentPosition().toInt() }
     }
 
-    // Surface Management
     fun registerPreviewSurface(s: Surface) = surfaceManager.registerPreviewSurface(s)
-    fun registerImageReaderSurface(s: Surface, f: Int, w: Int, h: Int) = surfaceManager.registerImageReaderSurface(s, f, w, h)
+    fun registerImageReaderSurface(s: Surface, f: Int, w: Int, h: Int) =
+        surfaceManager.registerImageReaderSurface(s, f, w, h)
     fun isPreviewSurface(s: Surface?) = surfaceManager.isPreviewSurface(s)
     fun logSessionOutput(s: Surface) = surfaceManager.logSessionOutput(s)
     fun incrementSessionGeneration() = surfaceManager.incrementSessionGeneration()
     fun clearPreviewSurfaces() = surfaceManager.clearPreviewSurfaces(engine.isPlaying())
 
-    // Frame Processing
     fun injectYuvFrame(image: android.media.Image, width: Int, height: Int) {
         val jpeg = handleStreamFrame(width, height) ?: return
         yuvProcessor.injectToImage(image, jpeg)
     }
 
-    // Engine Delegation
     fun stopEngine() = engine.stop()
     fun handleCamera1Preview(st: SurfaceTexture) = engine.handleCamera1Preview(st)
     fun handleModernPreview(s: Surface) = engine.handleModernPreview(s)
     fun handleSurfaceViewPreview(h: SurfaceHolder) = engine.handleSurfaceViewPreview(h)
     fun getDummySurface() = engine.getDummySurface()
 
-    // Capture Delegation
     fun handleCapture(w: Int, h: Int) = captureManager.handleCapture(
-        settings.mediaPath, w, h, settings.rotationAngle, settings.isMirrored,
+        settings.mediaPath,
+        w,
+        h,
+        settings.rotationAngle,
+        settings.isMirrored,
         { isIgnoringHooks() },
         { setIgnoringHooks(it) },
     )
 
     fun handleStreamFrame(w: Int, h: Int) = captureManager.handleStreamFrame(
-        settings.mediaPath, w, h, settings.rotationAngle, settings.isMirrored,
+        settings.mediaPath,
+        w,
+        h,
+        settings.rotationAngle,
+        settings.isMirrored,
         { isIgnoringHooks() },
         { setIgnoringHooks(it) },
     )
@@ -110,11 +113,12 @@ class XCamModule : XposedModule() {
     override fun onPackageReady(param: XposedModuleInterface.PackageReadyParam) {
         super.onPackageReady(param)
         val processName = SystemUtils.getProcessNameStrict()
-        if (param.packageName == "com.hazbu.xcam") {
+
+        if (param.packageName == "com.vaguer.cam") {
             hookManagerApp(param)
             return
         }
-        
+
         if (!processName.contains(param.packageName)) return
         if (hooksInstalled) return
         hooksInstalled = true
@@ -130,7 +134,8 @@ class XCamModule : XposedModule() {
         try {
             val clazz = param.classLoader.loadClass("com.hazbu.xcam.ui.MainActivity")
             hook(clazz.getDeclaredMethod("checkSelfActive")).intercept { true }
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) {
+        }
     }
 
     private fun hookContextInit() {
