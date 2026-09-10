@@ -3,209 +3,399 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:background="?attr/colorSurface"
+    android:fillViewport="true">
 
     <LinearLayout
         android:id="@+id/main"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
-        android:gravity="center_horizontal">
+        android:padding="16dp">
 
         <TextView
-            android:id="@+id/tv_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_gravity="center_horizontal"
             android:text="@string/title_manager"
             android:textAppearance="?attr/textAppearanceHeadlineLarge"
-            android:textStyle="bold"
-            android:textColor="?attr/colorOnSurface" />
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
+            android:text="@string/subtitle_manager"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant" />
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_module_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="24dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="@android:color/transparent"
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp"
-            app:strokeWidth="1dp"
             app:strokeColor="?attr/colorOutline"
-            app:cardBackgroundColor="@android:color/transparent">
+            app:strokeWidth="1dp">
 
             <TextView
                 android:id="@+id/tv_module_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:paddingHorizontal="16dp"
-                android:paddingVertical="4dp"
+                android:paddingVertical="5dp"
                 android:text="@string/status_module_inactive"
-                android:textAppearance="?attr/textAppearanceLabelLarge"
-                android:textColor="?attr/colorOnSurfaceVariant" />
+                android:textAppearance="?attr/textAppearanceLabelLarge" />
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_scoped_apps"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            app:cardCornerRadius="16dp"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            app:cardCornerRadius="14dp"
             app:cardElevation="0dp"
-            app:strokeWidth="1dp"
             app:strokeColor="?attr/colorOutlineVariant"
-            android:visibility="gone">
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_active_scopes"
+                    android:textAppearance="?attr/textAppearanceLabelMedium" />
 
                 <HorizontalScrollView
-                    android:id="@+id/scroll_scoped_apps"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
                     android:scrollbars="none">
 
                     <LinearLayout
                         android:id="@+id/layout_scoped_apps"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-                    </LinearLayout>
+                        android:orientation="horizontal" />
                 </HorizontalScrollView>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOutlineVariant">
+            app:strokeColor="?attr/colorOutlineVariant"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="14dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/label_media_preview"
-                    android:textAppearance="?attr/textAppearanceLabelMedium"
+                    android:text="@string/label_output_preview"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_media_type"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/label_no_media"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="24dp"
+                    android:layout_height="320dp"
+                    android:layout_marginTop="10dp"
+                    app:cardBackgroundColor="#000000"
                     app:cardCornerRadius="12dp"
-                    app:cardBackgroundColor="?attr/colorSurfaceVariant"
-                    app:cardElevation="0dp"
-                    app:strokeWidth="0dp">
+                    app:cardElevation="0dp">
 
-                    <androidx.constraintlayout.widget.ConstraintLayout
+                    <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content">
+                        android:layout_height="match_parent"
+                        android:clipChildren="true"
+                        android:clipToPadding="true">
 
-                        <ImageView
+                        <com.hazbu.xcam.ui.TransformableImageView
                             android:id="@+id/iv_preview"
-                            android:layout_width="0dp"
-                            android:layout_height="0dp"
-                            android:scaleType="centerCrop"
-                            android:contentDescription="@string/desc_media_preview"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:layout_constraintBottom_toBottomOf="parent"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintDimensionRatio="1:1" />
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@string/desc_media_preview" />
+
+                        <TextView
+                            android:id="@+id/tv_no_preview"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:text="@string/label_none"
+                            android:textColor="#FFFFFF" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btn_delete_media"
                             style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_gravity="top|end"
                             android:layout_margin="8dp"
-                            app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                            android:contentDescription="@string/btn_delete_media"
                             android:visibility="gone"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent" />
-
-                        <TextView
-                            android:id="@+id/tv_no_preview"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/label_none"
-                            android:textAppearance="?attr/textAppearanceBodyMedium"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            app:layout_constraintTop_toTopOf="parent"
-                            app:layout_constraintBottom_toBottomOf="parent"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent" />
-
-                    </androidx.constraintlayout.widget.ConstraintLayout>
+                            app:icon="@android:drawable/ic_menu_close_clear_cancel" />
+                    </FrameLayout>
                 </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/hint_gestures"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:paddingBottom="16dp">
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_rotate_left"
-                        style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        app:icon="@drawable/ic_rotate_left"
-                        android:contentDescription="@string/desc_rotate_left" />
+                        android:id="@+id/btn_select_media"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_weight="1"
+                        android:text="@string/btn_select_media"
+                        android:textAllCaps="false" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_mirror"
-                        style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        app:icon="@drawable/ic_mirror"
-                        android:contentDescription="@string/desc_mirror" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_rotate_right"
-                        style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        app:icon="@drawable/ic_rotate_right"
-                        android:contentDescription="@string/desc_rotate_right" />
+                        android:id="@+id/btn_apply"
+                        android:layout_width="0dp"
+                        android:layout_height="52dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:enabled="false"
+                        android:text="@string/btn_apply"
+                        android:textAllCaps="false" />
                 </LinearLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_select_video"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="@string/btn_select_video"
-                    android:textAllCaps="false"
-                    app:cornerRadius="12dp" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <TextView
-            android:id="@+id/tv_note"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="@string/section_transform"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textStyle="bold" />
+
+        <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_center"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_center"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_fit"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/btn_fit"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_fill"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/btn_fill"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_stretch"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/btn_stretch"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_reset"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:text="@string/btn_reset"
+                    android:textAllCaps="false" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_rotate_left"
+                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/desc_rotate_left"
+                app:icon="@drawable/ic_rotate_left" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_mirror"
+                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="12dp"
+                android:contentDescription="@string/desc_mirror"
+                app:icon="@drawable/ic_mirror" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_rotate_right"
+                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/desc_rotate_right"
+                app:icon="@drawable/ic_rotate_right" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_scale_x"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/label_width_default" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/slider_scale_x"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/tv_scale_y"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_height_default" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/slider_scale_y"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/section_image"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_enhance"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/btn_enhance"
+            android:textAllCaps="false" />
+
+        <TextView
+            android:id="@+id/tv_brightness"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/label_brightness_default" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/slider_brightness"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/tv_contrast"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_contrast_default" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/slider_contrast"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/tv_saturation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_saturation_default" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/slider_saturation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/tv_sharpness"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/label_sharpness_default" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/slider_sharpness"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/note_sharpness"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:layout_marginBottom="8dp"
             android:gravity="center"
             android:text="@string/note_restart"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textAppearance="?attr/textAppearanceBodySmall"
             android:textColor="?attr/colorOnSurfaceVariant" />
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>
