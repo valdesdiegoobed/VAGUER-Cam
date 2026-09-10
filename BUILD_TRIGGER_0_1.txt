@@ -1,0 +1,1 @@
+Trigger build for the current VAGUER Cam 0.1 development branch after transform and image-control changes.
