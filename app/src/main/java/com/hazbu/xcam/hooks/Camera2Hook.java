@@ -2,6 +2,7 @@ package com.hazbu.xcam.hooks;
 
 import android.annotation.SuppressLint;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.OutputConfiguration;
 import android.view.Surface;
 
@@ -27,6 +28,7 @@ public class Camera2Hook {
     public void install(XposedModuleInterface.PackageReadyParam param) {
         try {
             module.logHook("[*] Initializing Camera2 API");
+            hookCameraSelection(param);
             hookDiscovery(param);
             hookModernHijack(param);
             hookSurgicalDiverter(param);
@@ -34,6 +36,37 @@ public class Camera2Hook {
             module.logHook("[+] Camera2 API hooks installed successfully");
         } catch (Throwable t) {
             module.logHook("[!] Failed to initialize Camera2 API hooks: " + t.getMessage());
+        }
+    }
+
+    /**
+     * Capture the actual camera id before Chromium/WebRTC creates its session.
+     * The target rotates raw sensor frames for the display, so VAGUER Cam must
+     * know the selected sensor orientation to pre-compensate the virtual frame.
+     */
+    private void hookCameraSelection(XposedModuleInterface.PackageReadyParam param) {
+        try {
+            for (Method method : CameraManager.class.getDeclaredMethods()) {
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (!method.getName().equals("openCamera") ||
+                        parameterTypes.length == 0 ||
+                        parameterTypes[0] != String.class) {
+                    continue;
+                }
+
+                module.hook(method).intercept(chain -> {
+                    Object firstArg = !chain.getArgs().isEmpty() ? chain.getArgs().get(0) : null;
+                    if (firstArg instanceof String) {
+                        String cameraId = (String) firstArg;
+                        module.logHook("[*] Camera2 selected id=" + cameraId);
+                        module.updateCamera2Orientation(cameraId);
+                    }
+                    return chain.proceed();
+                });
+                module.logHook("[+] Hooked: CameraManager#" + method.getName());
+            }
+        } catch (Throwable t) {
+            module.logHook("[!] Camera selection hook failed: " + t.getMessage());
         }
     }
 
