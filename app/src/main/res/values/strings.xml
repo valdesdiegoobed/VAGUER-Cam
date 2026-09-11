@@ -10,6 +10,9 @@
     <string name="label_video_ready">Video listo · se repetirá en bucle</string>
     <string name="label_processing_photo">Procesando fotografía…</string>
     <string name="hint_gestures">Arrastra para mover y usa dos dedos para ampliar o reducir.</string>
+    <string name="label_layout_monitor">Monitor de posición</string>
+    <string name="label_layout_monitor_empty">VGR1|X=0.000|Y=0.000|SX=1.000|SY=1.000|R=0|M=0|FIT=FIT|B=0.000|C=0.000|S=0.0|N=0.000|IMG=—|VIEW=—</string>
+    <string name="hint_layout_monitor">Este código cambia en tiempo real. Si me mandas una captura donde se vea completo, puedo leer exactamente la posición y convertirla después en un botón de autoacomodo.</string>
 
     <string name="btn_select_media">Foto / Video</string>
     <string name="btn_apply">Aplicar a cámara</string>
