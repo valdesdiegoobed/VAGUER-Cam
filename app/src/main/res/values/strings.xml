@@ -22,6 +22,12 @@
     <string name="btn_enhance">Mejora automática</string>
     <string name="btn_auto_frame">Autoencuadre IA</string>
     <string name="btn_copy_coordinates">Copiar coordenadas</string>
+    <string name="btn_copy_layout">Copiar ajuste</string>
+    <string name="btn_load_with_copy">Cargar con copia</string>
+    <string name="hint_layout_copy">Copia todos los parámetros de la imagen actual: posición X/Y, ancho, alto, zoom, rotación, espejo, modo de ajuste, brillo, contraste, saturación y nitidez. “Cargar con copia” aplica esos mismos valores a la siguiente fotografía.</string>
+    <string name="toast_layout_copied">Ajuste copiado. Ya puedes cargar otra foto con la misma posición.</string>
+    <string name="toast_no_layout_copy">Primero copia el ajuste de una foto.</string>
+    <string name="toast_layout_applied">Foto cargada con el ajuste copiado.</string>
 
     <string name="section_transform">Transformar</string>
     <string name="section_image">Imagen</string>
