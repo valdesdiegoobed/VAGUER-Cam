@@ -74,7 +74,6 @@ class SafeMainActivity : AppCompatActivity() {
     private lateinit var tvContrast: TextView
     private lateinit var tvSaturation: TextView
     private lateinit var tvSharpness: TextView
-    private lateinit var tvLayoutMonitor: TextView
     private lateinit var tvModuleStatus: TextView
 
     private lateinit var btnSelectMedia: MaterialButton
@@ -90,6 +89,7 @@ class SafeMainActivity : AppCompatActivity() {
     private lateinit var btnReset: MaterialButton
     private lateinit var btnEnhance: MaterialButton
     private lateinit var btnAutoFrame: MaterialButton
+    private lateinit var btnAutoLayout: MaterialButton
     private lateinit var btnCopyCoordinates: MaterialButton
     private lateinit var btnCopyLayout: MaterialButton
     private lateinit var btnLoadWithCopy: MaterialButton
@@ -189,7 +189,6 @@ class SafeMainActivity : AppCompatActivity() {
         tvContrast = findViewById(R.id.tv_contrast)
         tvSaturation = findViewById(R.id.tv_saturation)
         tvSharpness = findViewById(R.id.tv_sharpness)
-        tvLayoutMonitor = findViewById(R.id.tv_layout_monitor)
         tvModuleStatus = findViewById(R.id.tv_module_status)
 
         btnSelectMedia = findViewById(R.id.btn_select_media)
@@ -205,6 +204,7 @@ class SafeMainActivity : AppCompatActivity() {
         btnReset = findViewById(R.id.btn_reset)
         btnEnhance = findViewById(R.id.btn_enhance)
         btnAutoFrame = findViewById(R.id.btn_auto_frame)
+        btnAutoLayout = findViewById(R.id.btn_auto_layout)
         btnCopyCoordinates = findViewById(R.id.btn_copy_coordinates)
         btnCopyLayout = findViewById(R.id.btn_copy_layout)
         btnLoadWithCopy = findViewById(R.id.btn_load_with_copy)
@@ -245,7 +245,6 @@ class SafeMainActivity : AppCompatActivity() {
             state.fitMode = changed.fitMode
             syncTransformSliders()
             updateMirrorButton()
-            updateLayoutMonitor()
             saveState()
         }
 
@@ -289,6 +288,7 @@ class SafeMainActivity : AppCompatActivity() {
         }
 
         btnAutoFrame.setOnClickListener { runAutoFrame() }
+        btnAutoLayout.setOnClickListener { applyVaguerPreset() }
         btnCopyCoordinates.setOnClickListener { copyCoordinates() }
         btnCopyLayout.setOnClickListener { saveCopiedLayout() }
         btnLoadWithCopy.setOnClickListener {
@@ -472,6 +472,7 @@ class SafeMainActivity : AppCompatActivity() {
             btnDeleteMedia.visibility = View.VISIBLE
             btnApply.isEnabled = true
             btnAutoFrame.isEnabled = currentIsImage
+            btnAutoLayout.isEnabled = currentIsImage
             btnCopyCoordinates.isEnabled = true
             btnCopyLayout.isEnabled = true
             sliderSharpness.isEnabled = currentIsImage
@@ -552,6 +553,30 @@ class SafeMainActivity : AppCompatActivity() {
         saveState()
     }
 
+    private fun applyVaguerPreset() {
+        if (!currentIsImage || previewBitmap == null) {
+            toast(getString(R.string.toast_auto_layout_photo_only))
+            return
+        }
+
+        state = TransformState(
+            scaleX = 1.550f,
+            scaleY = 1.560f,
+            offsetX = 0.070f,
+            offsetY = 0.000f,
+            rotation = 0,
+            mirrored = false,
+            fitMode = Constants.FIT_MODE_STRETCH,
+            brightness = 0.110f,
+            contrast = 0.590f,
+            saturation = 30.0f,
+            sharpness = 0.970f,
+        )
+        syncAllControls()
+        saveState()
+        toast(getString(R.string.toast_auto_layout_applied))
+    }
+
     private fun saveCopiedLayout() {
         if (previewBitmap == null || currentSourcePath.isBlank()) {
             toast(getString(R.string.toast_select_media_first))
@@ -619,38 +644,6 @@ class SafeMainActivity : AppCompatActivity() {
     private fun updateCopyLayoutButtons() {
         btnCopyLayout.isEnabled = previewBitmap != null && currentSourcePath.isNotBlank()
         btnLoadWithCopy.isEnabled = loadCopiedLayout() != null
-    }
-
-    private fun updateLayoutMonitor() {
-        val imageSize = previewBitmap?.let { "${it.width}x${it.height}" } ?: "—"
-        val previewSize = if (ivPreview.width > 0 && ivPreview.height > 0) {
-            "${ivPreview.width}x${ivPreview.height}"
-        } else {
-            "—"
-        }
-        val fitLabel = when (state.fitMode) {
-            Constants.FIT_MODE_FILL -> "FILL"
-            Constants.FIT_MODE_STRETCH -> "STRETCH"
-            else -> "FIT"
-        }
-        val code = String.format(
-            java.util.Locale.US,
-            "VGR1|X=%.3f|Y=%.3f|SX=%.3f|SY=%.3f|R=%d|M=%d|FIT=%s|B=%.3f|C=%.3f|S=%.1f|N=%.3f|IMG=%s|VIEW=%s",
-            state.offsetX,
-            state.offsetY,
-            state.scaleX,
-            state.scaleY,
-            state.rotation,
-            if (state.mirrored) 1 else 0,
-            fitLabel,
-            state.brightness,
-            state.contrast,
-            state.saturation,
-            state.sharpness,
-            imageSize,
-            previewSize,
-        )
-        tvLayoutMonitor.text = code
     }
 
     private fun copyCoordinates() {
@@ -819,7 +812,6 @@ class SafeMainActivity : AppCompatActivity() {
         updateMirrorButton()
         updateLabels()
         applyPreviewColorFilter()
-        updateLayoutMonitor()
     }
 
     private fun syncTransformSliders() {
@@ -856,7 +848,6 @@ class SafeMainActivity : AppCompatActivity() {
         tvContrast.text = getString(R.string.label_contrast_value, (state.contrast * 100).toInt())
         tvSaturation.text = getString(R.string.label_saturation_value, state.saturation.toInt())
         tvSharpness.text = getString(R.string.label_sharpness_value, (state.sharpness * 100).toInt())
-        updateLayoutMonitor()
     }
 
     private fun updateMirrorButton() {
@@ -893,13 +884,13 @@ class SafeMainActivity : AppCompatActivity() {
         btnDeleteMedia.visibility = View.GONE
         btnApply.isEnabled = false
         btnAutoFrame.isEnabled = false
+        btnAutoLayout.isEnabled = false
         btnCopyCoordinates.isEnabled = false
         btnCopyLayout.isEnabled = false
         btnLoadWithCopy.isEnabled = loadCopiedLayout() != null
         sliderSharpness.isEnabled = false
         tvMediaType.text = getString(R.string.label_no_media)
         updateCopyLayoutButtons()
-        updateLayoutMonitor()
     }
 
     private fun setPreviewBitmap(bitmap: Bitmap) {
@@ -907,7 +898,6 @@ class SafeMainActivity : AppCompatActivity() {
         previewBitmap?.let { old -> if (old !== bitmap && !old.isRecycled) old.recycle() }
         previewBitmap = bitmap
         ivPreview.setImageBitmap(bitmap)
-        ivPreview.post { updateLayoutMonitor() }
     }
 
     private fun clearPreviewBitmap() {
