@@ -75,6 +75,13 @@ class TransformableImageView @JvmOverloads constructor(
         notifyChangedSafely()
     }
 
+    fun setOffsets(x: Float, y: Float) {
+        state.offsetX = safe(x, 0f, -2f, 2f)
+        state.offsetY = safe(y, 0f, -2f, 2f)
+        applyTransform()
+        notifyChangedSafely()
+    }
+
     fun rotateBy(degrees: Int) {
         state.rotation = normalizeRotation(state.rotation + degrees)
         applyTransform()
