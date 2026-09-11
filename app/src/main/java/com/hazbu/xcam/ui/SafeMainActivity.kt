@@ -74,6 +74,7 @@ class SafeMainActivity : AppCompatActivity() {
     private lateinit var tvContrast: TextView
     private lateinit var tvSaturation: TextView
     private lateinit var tvSharpness: TextView
+    private lateinit var tvLayoutMonitor: TextView
     private lateinit var tvModuleStatus: TextView
 
     private lateinit var btnSelectMedia: MaterialButton
@@ -188,6 +189,7 @@ class SafeMainActivity : AppCompatActivity() {
         tvContrast = findViewById(R.id.tv_contrast)
         tvSaturation = findViewById(R.id.tv_saturation)
         tvSharpness = findViewById(R.id.tv_sharpness)
+        tvLayoutMonitor = findViewById(R.id.tv_layout_monitor)
         tvModuleStatus = findViewById(R.id.tv_module_status)
 
         btnSelectMedia = findViewById(R.id.btn_select_media)
@@ -243,6 +245,7 @@ class SafeMainActivity : AppCompatActivity() {
             state.fitMode = changed.fitMode
             syncTransformSliders()
             updateMirrorButton()
+            updateLayoutMonitor()
             saveState()
         }
 
@@ -618,6 +621,38 @@ class SafeMainActivity : AppCompatActivity() {
         btnLoadWithCopy.isEnabled = loadCopiedLayout() != null
     }
 
+    private fun updateLayoutMonitor() {
+        val imageSize = previewBitmap?.let { "${it.width}x${it.height}" } ?: "—"
+        val previewSize = if (ivPreview.width > 0 && ivPreview.height > 0) {
+            "${ivPreview.width}x${ivPreview.height}"
+        } else {
+            "—"
+        }
+        val fitLabel = when (state.fitMode) {
+            Constants.FIT_MODE_FILL -> "FILL"
+            Constants.FIT_MODE_STRETCH -> "STRETCH"
+            else -> "FIT"
+        }
+        val code = String.format(
+            java.util.Locale.US,
+            "VGR1|X=%.3f|Y=%.3f|SX=%.3f|SY=%.3f|R=%d|M=%d|FIT=%s|B=%.3f|C=%.3f|S=%.1f|N=%.3f|IMG=%s|VIEW=%s",
+            state.offsetX,
+            state.offsetY,
+            state.scaleX,
+            state.scaleY,
+            state.rotation,
+            if (state.mirrored) 1 else 0,
+            fitLabel,
+            state.brightness,
+            state.contrast,
+            state.saturation,
+            state.sharpness,
+            imageSize,
+            previewSize,
+        )
+        tvLayoutMonitor.text = code
+    }
+
     private fun copyCoordinates() {
         val text = String.format(
             java.util.Locale.US,
@@ -784,6 +819,7 @@ class SafeMainActivity : AppCompatActivity() {
         updateMirrorButton()
         updateLabels()
         applyPreviewColorFilter()
+        updateLayoutMonitor()
     }
 
     private fun syncTransformSliders() {
@@ -820,6 +856,7 @@ class SafeMainActivity : AppCompatActivity() {
         tvContrast.text = getString(R.string.label_contrast_value, (state.contrast * 100).toInt())
         tvSaturation.text = getString(R.string.label_saturation_value, state.saturation.toInt())
         tvSharpness.text = getString(R.string.label_sharpness_value, (state.sharpness * 100).toInt())
+        updateLayoutMonitor()
     }
 
     private fun updateMirrorButton() {
@@ -862,6 +899,7 @@ class SafeMainActivity : AppCompatActivity() {
         sliderSharpness.isEnabled = false
         tvMediaType.text = getString(R.string.label_no_media)
         updateCopyLayoutButtons()
+        updateLayoutMonitor()
     }
 
     private fun setPreviewBitmap(bitmap: Bitmap) {
@@ -869,6 +907,7 @@ class SafeMainActivity : AppCompatActivity() {
         previewBitmap?.let { old -> if (old !== bitmap && !old.isRecycled) old.recycle() }
         previewBitmap = bitmap
         ivPreview.setImageBitmap(bitmap)
+        ivPreview.post { updateLayoutMonitor() }
     }
 
     private fun clearPreviewBitmap() {
