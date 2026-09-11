@@ -46,6 +46,19 @@ class SafeMainActivity : AppCompatActivity() {
         private const val SOURCE_PREFIX = "source."
         private const val OUTPUT_VIDEO_NAME = "virtual.mp4"
         private const val PREPARED_IMAGE_NAME = "prepared.jpg"
+        private const val COPY_PREFS_NAME = "vaguer_transform_copy"
+        private const val COPY_KEY_HAS_STATE = "has_state"
+        private const val COPY_KEY_SCALE_X = "scale_x"
+        private const val COPY_KEY_SCALE_Y = "scale_y"
+        private const val COPY_KEY_OFFSET_X = "offset_x"
+        private const val COPY_KEY_OFFSET_Y = "offset_y"
+        private const val COPY_KEY_ROTATION = "rotation"
+        private const val COPY_KEY_MIRRORED = "mirrored"
+        private const val COPY_KEY_FIT_MODE = "fit_mode"
+        private const val COPY_KEY_BRIGHTNESS = "brightness"
+        private const val COPY_KEY_CONTRAST = "contrast"
+        private const val COPY_KEY_SATURATION = "saturation"
+        private const val COPY_KEY_SHARPNESS = "sharpness"
     }
 
     private lateinit var ivPreview: TransformableImageView
@@ -77,6 +90,8 @@ class SafeMainActivity : AppCompatActivity() {
     private lateinit var btnEnhance: MaterialButton
     private lateinit var btnAutoFrame: MaterialButton
     private lateinit var btnCopyCoordinates: MaterialButton
+    private lateinit var btnCopyLayout: MaterialButton
+    private lateinit var btnLoadWithCopy: MaterialButton
 
     private lateinit var sliderScaleX: Slider
     private lateinit var sliderScaleY: Slider
@@ -110,6 +125,18 @@ class SafeMainActivity : AppCompatActivity() {
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         uri?.let { copyMediaToInternal(it) }
+    }
+
+    private val copiedPhotoPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        val copied = loadCopiedLayout()
+        if (copied == null) {
+            toast(getString(R.string.toast_no_layout_copy))
+        } else {
+            copyMediaToInternal(uri, copied)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -177,6 +204,8 @@ class SafeMainActivity : AppCompatActivity() {
         btnEnhance = findViewById(R.id.btn_enhance)
         btnAutoFrame = findViewById(R.id.btn_auto_frame)
         btnCopyCoordinates = findViewById(R.id.btn_copy_coordinates)
+        btnCopyLayout = findViewById(R.id.btn_copy_layout)
+        btnLoadWithCopy = findViewById(R.id.btn_load_with_copy)
 
         sliderScaleX = findViewById(R.id.slider_scale_x)
         sliderScaleY = findViewById(R.id.slider_scale_y)
@@ -258,6 +287,14 @@ class SafeMainActivity : AppCompatActivity() {
 
         btnAutoFrame.setOnClickListener { runAutoFrame() }
         btnCopyCoordinates.setOnClickListener { copyCoordinates() }
+        btnCopyLayout.setOnClickListener { saveCopiedLayout() }
+        btnLoadWithCopy.setOnClickListener {
+            if (loadCopiedLayout() == null) {
+                toast(getString(R.string.toast_no_layout_copy))
+            } else {
+                copiedPhotoPickerLauncher.launch(arrayOf("image/*"))
+            }
+        }
 
         sliderScaleX.addOnChangeListener { _, value, fromUser ->
             if (fromUser) {
@@ -323,7 +360,7 @@ class SafeMainActivity : AppCompatActivity() {
         slider.value = value.coerceIn(from, to)
     }
 
-    private fun copyMediaToInternal(uri: Uri) {
+    private fun copyMediaToInternal(uri: Uri, copiedLayout: TransformState? = null) {
         try {
             val mime = contentResolver.getType(uri) ?: "application/octet-stream"
             val isImage = mime.startsWith("image/")
@@ -347,7 +384,7 @@ class SafeMainActivity : AppCompatActivity() {
 
             currentSourcePath = source.absolutePath
             currentIsImage = isImage
-            state = TransformState()
+            state = copiedLayout?.copy() ?: TransformState()
 
             getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE).edit {
                 putString(Constants.KEY_SOURCE_PATH, currentSourcePath)
@@ -358,7 +395,9 @@ class SafeMainActivity : AppCompatActivity() {
             loadPreview()
             syncAllControls()
 
-            if (currentIsImage) {
+            if (copiedLayout != null && currentIsImage) {
+                toast(getString(R.string.toast_layout_applied))
+            } else if (currentIsImage) {
                 toast("Foto lista para editar. Pulsa Aplicar a cámara al terminar.")
             } else {
                 toast("Video listo para editar. Pulsa Aplicar a cámara al terminar.")
@@ -389,6 +428,7 @@ class SafeMainActivity : AppCompatActivity() {
             )
             loadPreview()
             syncAllControls()
+            updateCopyLayoutButtons()
         } catch (_: Throwable) {
             getSharedPreferences(Constants.PREFS_NAME, MODE_PRIVATE).edit { clear() }
             state = TransformState()
@@ -396,6 +436,7 @@ class SafeMainActivity : AppCompatActivity() {
             currentIsImage = false
             showEmptyPreview()
             syncAllControls()
+            updateCopyLayoutButtons()
         }
     }
 
@@ -429,6 +470,7 @@ class SafeMainActivity : AppCompatActivity() {
             btnApply.isEnabled = true
             btnAutoFrame.isEnabled = currentIsImage
             btnCopyCoordinates.isEnabled = true
+            btnCopyLayout.isEnabled = true
             sliderSharpness.isEnabled = currentIsImage
             tvMediaType.text = if (currentIsImage) {
                 getString(R.string.label_photo_ready)
@@ -437,6 +479,7 @@ class SafeMainActivity : AppCompatActivity() {
             }
             ivPreview.setTransformState(state)
             applyPreviewColorFilter()
+            updateCopyLayoutButtons()
         } catch (_: Throwable) {
             showEmptyPreview()
         }
@@ -504,6 +547,75 @@ class SafeMainActivity : AppCompatActivity() {
         )
         syncAllControls()
         saveState()
+    }
+
+    private fun saveCopiedLayout() {
+        if (previewBitmap == null || currentSourcePath.isBlank()) {
+            toast(getString(R.string.toast_select_media_first))
+            return
+        }
+
+        getSharedPreferences(COPY_PREFS_NAME, MODE_PRIVATE).edit {
+            putBoolean(COPY_KEY_HAS_STATE, true)
+            putFloat(COPY_KEY_SCALE_X, state.scaleX)
+            putFloat(COPY_KEY_SCALE_Y, state.scaleY)
+            putFloat(COPY_KEY_OFFSET_X, state.offsetX)
+            putFloat(COPY_KEY_OFFSET_Y, state.offsetY)
+            putInt(COPY_KEY_ROTATION, state.rotation)
+            putBoolean(COPY_KEY_MIRRORED, state.mirrored)
+            putString(COPY_KEY_FIT_MODE, state.fitMode)
+            putFloat(COPY_KEY_BRIGHTNESS, state.brightness)
+            putFloat(COPY_KEY_CONTRAST, state.contrast)
+            putFloat(COPY_KEY_SATURATION, state.saturation)
+            putFloat(COPY_KEY_SHARPNESS, state.sharpness)
+        }
+        updateCopyLayoutButtons()
+        toast(getString(R.string.toast_layout_copied))
+    }
+
+    private fun loadCopiedLayout(): TransformState? {
+        val prefs = getSharedPreferences(COPY_PREFS_NAME, MODE_PRIVATE)
+        if (!prefs.getBoolean(COPY_KEY_HAS_STATE, false)) return null
+
+        return TransformState(
+            scaleX = safeFloat(prefs.getFloat(COPY_KEY_SCALE_X, 1f), 1f, 0.25f, 4f),
+            scaleY = safeFloat(prefs.getFloat(COPY_KEY_SCALE_Y, 1f), 1f, 0.25f, 4f),
+            offsetX = safeFloat(prefs.getFloat(COPY_KEY_OFFSET_X, 0f), 0f, -2f, 2f),
+            offsetY = safeFloat(prefs.getFloat(COPY_KEY_OFFSET_Y, 0f), 0f, -2f, 2f),
+            rotation = ((prefs.getInt(COPY_KEY_ROTATION, 0) % 360) + 360) % 360,
+            mirrored = prefs.getBoolean(COPY_KEY_MIRRORED, false),
+            fitMode = prefs.getString(COPY_KEY_FIT_MODE, Constants.FIT_MODE_FIT)
+                ?: Constants.FIT_MODE_FIT,
+            brightness = safeFloat(
+                prefs.getFloat(COPY_KEY_BRIGHTNESS, 0f),
+                0f,
+                -1f,
+                1f,
+            ),
+            contrast = safeFloat(
+                prefs.getFloat(COPY_KEY_CONTRAST, 0f),
+                0f,
+                -1f,
+                1f,
+            ),
+            saturation = safeFloat(
+                prefs.getFloat(COPY_KEY_SATURATION, 0f),
+                0f,
+                -100f,
+                100f,
+            ),
+            sharpness = safeFloat(
+                prefs.getFloat(COPY_KEY_SHARPNESS, 0f),
+                0f,
+                0f,
+                1f,
+            ),
+        )
+    }
+
+    private fun updateCopyLayoutButtons() {
+        btnCopyLayout.isEnabled = previewBitmap != null && currentSourcePath.isNotBlank()
+        btnLoadWithCopy.isEnabled = loadCopiedLayout() != null
     }
 
     private fun copyCoordinates() {
@@ -745,8 +857,11 @@ class SafeMainActivity : AppCompatActivity() {
         btnApply.isEnabled = false
         btnAutoFrame.isEnabled = false
         btnCopyCoordinates.isEnabled = false
+        btnCopyLayout.isEnabled = false
+        btnLoadWithCopy.isEnabled = loadCopiedLayout() != null
         sliderSharpness.isEnabled = false
         tvMediaType.text = getString(R.string.label_no_media)
+        updateCopyLayoutButtons()
     }
 
     private fun setPreviewBitmap(bitmap: Bitmap) {
