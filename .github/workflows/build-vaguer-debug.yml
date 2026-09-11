@@ -1,9 +1,9 @@
-name: VAGUER Cam Debug APK
+name: VAGUER Cam 0.1.7 Test APK
 
 on:
   push:
     branches:
-      - vaguer-0.1.6-autoencuadre-test
+      - vaguer-0.1.7-icon-test
   workflow_dispatch:
 
 permissions:
@@ -26,12 +26,12 @@ jobs:
       - name: Build and test installable debug APK
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest assembleDebug -PAPP_VERSION_CODE=7 -PAPP_VERSION_NAME=0.1.6-test
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/VAGUER-Cam-0.1.6-test.apk
+          ./gradlew testDebugUnitTest assembleDebug -PAPP_VERSION_CODE=8 -PAPP_VERSION_NAME=0.1.7-test
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/VAGUER-Cam-0.1.7-test.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VAGUER-Cam-0.1.6-test
-          path: app/build/outputs/apk/debug/VAGUER-Cam-0.1.6-test.apk
+          name: VAGUER-Cam-0.1.7-test
+          path: app/build/outputs/apk/debug/VAGUER-Cam-0.1.7-test.apk
           if-no-files-found: error
