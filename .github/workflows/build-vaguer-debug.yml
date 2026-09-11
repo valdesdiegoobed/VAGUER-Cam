@@ -1,9 +1,9 @@
-name: VAGUER Cam 0.1.9 Layout Monitor Test APK
+name: VAGUER Cam 0.2.0 Auto Layout Test APK
 
 on:
   push:
     branches:
-      - vaguer-0.1.9-layout-monitor-test
+      - vaguer-0.2.0-auto-layout-test
   workflow_dispatch:
 
 permissions:
@@ -26,12 +26,12 @@ jobs:
       - name: Build and test installable debug APK
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest assembleDebug -PAPP_VERSION_CODE=10 -PAPP_VERSION_NAME=0.1.9-monitor-test
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/VAGUER-Cam-0.1.9-monitor-test.apk
+          ./gradlew testDebugUnitTest assembleDebug -PAPP_VERSION_CODE=11 -PAPP_VERSION_NAME=0.2.0-auto-test
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/VAGUER-Cam-0.2.0-auto-test.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VAGUER-Cam-0.1.9-monitor-test
-          path: app/build/outputs/apk/debug/VAGUER-Cam-0.1.9-monitor-test.apk
+          name: VAGUER-Cam-0.2.0-auto-test
+          path: app/build/outputs/apk/debug/VAGUER-Cam-0.2.0-auto-test.apk
           if-no-files-found: error
