@@ -20,9 +20,19 @@
     <string name="btn_stretch">Estirar</string>
     <string name="btn_reset">Restablecer</string>
     <string name="btn_enhance">Mejora automática</string>
+    <string name="btn_auto_frame">Autoencuadre IA</string>
+    <string name="btn_copy_coordinates">Copiar coordenadas</string>
 
     <string name="section_transform">Transformar</string>
     <string name="section_image">Imagen</string>
+    <string name="section_precise">Ajuste preciso / coordenadas</string>
+    <string name="label_offset_x_default">Posición X: 0.00</string>
+    <string name="label_offset_y_default">Posición Y: 0.00</string>
+    <string name="label_offset_x_value">Posición X: %1$.2f</string>
+    <string name="label_offset_y_value">Posición Y: %1$.2f</string>
+    <string name="label_coordinates_default">X 0.00 · Y 0.00 · Zoom 1.00× · Rot 0°</string>
+    <string name="label_coordinates_value">X %1$.2f · Y %2$.2f · Zoom %3$.2f× · Rot %4$d°</string>
+    <string name="hint_auto_frame">Detecta el rostro y lo lleva al patrón VAGUER. No deforma facciones; solo ajusta encuadre, zoom y posición.</string>
     <string name="label_rotation_default">Rotación: 0°</string>
     <string name="label_rotation_value">Rotación: %d°</string>
     <string name="label_width_default">Ancho: 1.00×</string>
@@ -47,6 +57,12 @@
     <string name="toast_select_media_first">Primero selecciona una foto o video.</string>
     <string name="toast_settings_saved">Ajustes guardados y enviados a la cámara virtual.</string>
     <string name="toast_conversion_failed">No se pudo preparar la fotografía para la cámara.</string>
+    <string name="toast_auto_frame_photo_only">Autoencuadre está disponible para fotografías.</string>
+    <string name="toast_auto_frame_applied">Autoencuadre aplicado. Puedes afinar X, Y y zoom antes de aplicar a cámara.</string>
+    <string name="toast_auto_frame_no_face">No detecté un rostro. Dejé el patrón base para que lo ajustes con las coordenadas.</string>
+    <string name="toast_auto_frame_failed">No se pudo analizar el rostro: %s</string>
+    <string name="toast_coordinates_copied">Coordenadas copiadas.</string>
+    <string name="label_analyzing_face">Analizando rostro…</string>
 
     <string name="desc_media_preview">Vista previa del contenido</string>
     <string name="status_module_active">Módulo activo</string>
