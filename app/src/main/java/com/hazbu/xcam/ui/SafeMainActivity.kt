@@ -1,5 +1,8 @@
 package com.hazbu.xcam.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
@@ -50,6 +53,9 @@ class SafeMainActivity : AppCompatActivity() {
     private lateinit var tvMediaType: TextView
     private lateinit var tvScaleX: TextView
     private lateinit var tvScaleY: TextView
+    private lateinit var tvOffsetX: TextView
+    private lateinit var tvOffsetY: TextView
+    private lateinit var tvCoordinates: TextView
     private lateinit var tvRotation: TextView
     private lateinit var tvBrightness: TextView
     private lateinit var tvContrast: TextView
@@ -69,9 +75,13 @@ class SafeMainActivity : AppCompatActivity() {
     private lateinit var btnStretch: MaterialButton
     private lateinit var btnReset: MaterialButton
     private lateinit var btnEnhance: MaterialButton
+    private lateinit var btnAutoFrame: MaterialButton
+    private lateinit var btnCopyCoordinates: MaterialButton
 
     private lateinit var sliderScaleX: Slider
     private lateinit var sliderScaleY: Slider
+    private lateinit var sliderOffsetX: Slider
+    private lateinit var sliderOffsetY: Slider
     private lateinit var sliderRotation: Slider
     private lateinit var sliderBrightness: Slider
     private lateinit var sliderContrast: Slider
@@ -143,6 +153,9 @@ class SafeMainActivity : AppCompatActivity() {
         tvMediaType = findViewById(R.id.tv_media_type)
         tvScaleX = findViewById(R.id.tv_scale_x)
         tvScaleY = findViewById(R.id.tv_scale_y)
+        tvOffsetX = findViewById(R.id.tv_offset_x)
+        tvOffsetY = findViewById(R.id.tv_offset_y)
+        tvCoordinates = findViewById(R.id.tv_coordinates)
         tvRotation = findViewById(R.id.tv_rotation)
         tvBrightness = findViewById(R.id.tv_brightness)
         tvContrast = findViewById(R.id.tv_contrast)
@@ -162,9 +175,13 @@ class SafeMainActivity : AppCompatActivity() {
         btnStretch = findViewById(R.id.btn_stretch)
         btnReset = findViewById(R.id.btn_reset)
         btnEnhance = findViewById(R.id.btn_enhance)
+        btnAutoFrame = findViewById(R.id.btn_auto_frame)
+        btnCopyCoordinates = findViewById(R.id.btn_copy_coordinates)
 
         sliderScaleX = findViewById(R.id.slider_scale_x)
         sliderScaleY = findViewById(R.id.slider_scale_y)
+        sliderOffsetX = findViewById(R.id.slider_offset_x)
+        sliderOffsetY = findViewById(R.id.slider_offset_y)
         sliderRotation = findViewById(R.id.slider_rotation)
         sliderBrightness = findViewById(R.id.slider_brightness)
         sliderContrast = findViewById(R.id.slider_contrast)
@@ -178,6 +195,8 @@ class SafeMainActivity : AppCompatActivity() {
     private fun setupControls() {
         configureContinuousSlider(sliderScaleX, 0.25f, 4f, 1f)
         configureContinuousSlider(sliderScaleY, 0.25f, 4f, 1f)
+        configureContinuousSlider(sliderOffsetX, -2f, 2f, 0f)
+        configureContinuousSlider(sliderOffsetY, -2f, 2f, 0f)
         configureContinuousSlider(sliderRotation, 0f, 359f, 0f)
         sliderRotation.stepSize = 1f
         configureContinuousSlider(sliderBrightness, -1f, 1f, 0f)
@@ -237,6 +256,9 @@ class SafeMainActivity : AppCompatActivity() {
             saveState()
         }
 
+        btnAutoFrame.setOnClickListener { runAutoFrame() }
+        btnCopyCoordinates.setOnClickListener { copyCoordinates() }
+
         sliderScaleX.addOnChangeListener { _, value, fromUser ->
             if (fromUser) {
                 state.scaleX = value.coerceIn(0.25f, 4f)
@@ -247,6 +269,18 @@ class SafeMainActivity : AppCompatActivity() {
             if (fromUser) {
                 state.scaleY = value.coerceIn(0.25f, 4f)
                 ivPreview.setScaleFactors(state.scaleX, state.scaleY)
+            }
+        }
+        sliderOffsetX.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                state.offsetX = value.coerceIn(-2f, 2f)
+                ivPreview.setOffsets(state.offsetX, state.offsetY)
+            }
+        }
+        sliderOffsetY.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                state.offsetY = value.coerceIn(-2f, 2f)
+                ivPreview.setOffsets(state.offsetX, state.offsetY)
             }
         }
         sliderRotation.addOnChangeListener { _, value, fromUser ->
@@ -393,6 +427,8 @@ class SafeMainActivity : AppCompatActivity() {
             tvNoPreview.visibility = View.GONE
             btnDeleteMedia.visibility = View.VISIBLE
             btnApply.isEnabled = true
+            btnAutoFrame.isEnabled = currentIsImage
+            btnCopyCoordinates.isEnabled = true
             sliderSharpness.isEnabled = currentIsImage
             tvMediaType.text = if (currentIsImage) {
                 getString(R.string.label_photo_ready)
@@ -404,6 +440,89 @@ class SafeMainActivity : AppCompatActivity() {
         } catch (_: Throwable) {
             showEmptyPreview()
         }
+    }
+
+    private fun runAutoFrame() {
+        if (!currentIsImage) {
+            toast(getString(R.string.toast_auto_frame_photo_only))
+            return
+        }
+        val bitmap = previewBitmap
+        if (bitmap == null || bitmap.isRecycled) {
+            toast(getString(R.string.toast_select_media_first))
+            return
+        }
+
+        if (ivPreview.width <= 0 || ivPreview.height <= 0) {
+            ivPreview.post { runAutoFrame() }
+            return
+        }
+
+        btnAutoFrame.isEnabled = false
+        tvMediaType.text = getString(R.string.label_analyzing_face)
+
+        AutoFrameEngine.detect(
+            bitmap = bitmap,
+            viewWidth = ivPreview.width,
+            viewHeight = ivPreview.height,
+            onSuccess = { result ->
+                runOnUiThread {
+                    applyReferencePattern(result)
+                    btnAutoFrame.isEnabled = currentIsImage && previewBitmap != null
+                    tvMediaType.text = getString(R.string.label_photo_ready)
+                    if (result == null) {
+                        toast(getString(R.string.toast_auto_frame_no_face))
+                    } else {
+                        toast(getString(R.string.toast_auto_frame_applied))
+                    }
+                }
+            },
+            onFailure = { error ->
+                runOnUiThread {
+                    btnAutoFrame.isEnabled = currentIsImage && previewBitmap != null
+                    tvMediaType.text = getString(R.string.label_photo_ready)
+                    toast(getString(R.string.toast_auto_frame_failed, error.message ?: "error"))
+                }
+            },
+        )
+    }
+
+    private fun applyReferencePattern(result: AutoFrameEngine.FrameResult?) {
+        val zoom = result?.scale ?: AutoFrameEngine.REFERENCE_FALLBACK_SCALE
+        state = state.copy(
+            scaleX = zoom,
+            scaleY = zoom,
+            offsetX = result?.offsetX ?: 0f,
+            offsetY = result?.offsetY ?: 0f,
+            rotation = 0,
+            mirrored = false,
+            fitMode = Constants.FIT_MODE_FIT,
+            brightness = AutoFrameEngine.REFERENCE_BRIGHTNESS,
+            contrast = AutoFrameEngine.REFERENCE_CONTRAST,
+            saturation = AutoFrameEngine.REFERENCE_SATURATION,
+            sharpness = AutoFrameEngine.REFERENCE_SHARPNESS,
+        )
+        syncAllControls()
+        saveState()
+    }
+
+    private fun copyCoordinates() {
+        val text = String.format(
+            java.util.Locale.US,
+            "VAGUER: X=%.2f; Y=%.2f; Ancho=%.2fx; Alto=%.2fx; Rot=%d°; Brillo=%d%%; Contraste=%d%%; Saturación=%d%%; Nitidez=%d%%",
+            state.offsetX,
+            state.offsetY,
+            state.scaleX,
+            state.scaleY,
+            state.rotation,
+            (state.brightness * 100).toInt(),
+            (state.contrast * 100).toInt(),
+            state.saturation.toInt(),
+            (state.sharpness * 100).toInt(),
+        )
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Coordenadas VAGUER", text))
+        toast(getString(R.string.toast_coordinates_copied))
     }
 
     private fun applyCurrentMedia() {
@@ -558,6 +677,8 @@ class SafeMainActivity : AppCompatActivity() {
     private fun syncTransformSliders() {
         sliderScaleX.value = state.scaleX.coerceIn(0.25f, 4f)
         sliderScaleY.value = state.scaleY.coerceIn(0.25f, 4f)
+        sliderOffsetX.value = state.offsetX.coerceIn(-2f, 2f)
+        sliderOffsetY.value = state.offsetY.coerceIn(-2f, 2f)
         sliderRotation.value = state.rotation.coerceIn(0, 359).toFloat()
         updateLabels()
     }
@@ -573,6 +694,15 @@ class SafeMainActivity : AppCompatActivity() {
     private fun updateLabels() {
         tvScaleX.text = getString(R.string.label_width_value, state.scaleX)
         tvScaleY.text = getString(R.string.label_height_value, state.scaleY)
+        tvOffsetX.text = getString(R.string.label_offset_x_value, state.offsetX)
+        tvOffsetY.text = getString(R.string.label_offset_y_value, state.offsetY)
+        tvCoordinates.text = getString(
+            R.string.label_coordinates_value,
+            state.offsetX,
+            state.offsetY,
+            (state.scaleX + state.scaleY) / 2f,
+            state.rotation,
+        )
         tvRotation.text = getString(R.string.label_rotation_value, state.rotation)
         tvBrightness.text = getString(R.string.label_brightness_value, (state.brightness * 100).toInt())
         tvContrast.text = getString(R.string.label_contrast_value, (state.contrast * 100).toInt())
@@ -613,6 +743,8 @@ class SafeMainActivity : AppCompatActivity() {
         tvNoPreview.visibility = View.VISIBLE
         btnDeleteMedia.visibility = View.GONE
         btnApply.isEnabled = false
+        btnAutoFrame.isEnabled = false
+        btnCopyCoordinates.isEnabled = false
         sliderSharpness.isEnabled = false
         tvMediaType.text = getString(R.string.label_no_media)
     }
