@@ -3,7 +3,7 @@ name: VAGUER Cam Debug APK
 on:
   push:
     branches:
-      - vaguer-0.1.5
+      - vaguer-0.1.6-autoencuadre-test
   workflow_dispatch:
 
 permissions:
@@ -26,7 +26,7 @@ jobs:
       - name: Build and test installable debug APK
         run: |
           chmod +x gradlew
-          ./gradlew testDebugUnitTest assembleDebug -PAPP_VERSION_CODE=6 -PAPP_VERSION_NAME=0.1.5-test
+          ./gradlew testDebugUnitTest assembleDebug -PAPP_VERSION_CODE=7 -PAPP_VERSION_NAME=0.1.6-test
           cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/VAGUER-Cam-0.1.5-test.apk
 
       - name: Upload APK
